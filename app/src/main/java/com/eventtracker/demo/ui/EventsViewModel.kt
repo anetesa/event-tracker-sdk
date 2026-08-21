@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.eventtracker.demo.data.DemoConfigRepository
 import com.eventtracker.demo.data.SdkGateway
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class EventsViewModel @Inject constructor(
     private val sdkGateway: SdkGateway,

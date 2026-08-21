@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -38,7 +38,7 @@ fun EventsScreen(viewModel: EventsViewModel) {
 
     LazyColumn(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
         item { StatisticsSection(state) }
-        item { Divider(modifier = Modifier.padding(vertical = 16.dp)) }
+        item { HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp)) }
         item {
             ConfigurationSection(
                 retentionDaysInput = state.retentionDaysInput,
@@ -48,7 +48,7 @@ fun EventsScreen(viewModel: EventsViewModel) {
                 onApply = viewModel::onApplyConfigClicked,
             )
         }
-        item { Divider(modifier = Modifier.padding(vertical = 16.dp)) }
+        item { HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp)) }
         item {
             ActionButtonsSection(
                 isStressTestRunning = state.isStressTestRunning,
@@ -58,7 +58,7 @@ fun EventsScreen(viewModel: EventsViewModel) {
                 onClearAll = viewModel::onClearAllClicked,
             )
         }
-        item { Divider(modifier = Modifier.padding(vertical = 16.dp)) }
+        item { HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp)) }
         item { Text("Events (${state.events.size})", style = MaterialTheme.typography.titleMedium) }
         items(state.events, key = { it.id }) { event ->
             EventRow(event)

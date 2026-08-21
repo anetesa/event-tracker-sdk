@@ -53,6 +53,7 @@ class EventRepositoryImplTest {
         repository.trackEvent("today_2")
         clock.advanceByDays(-1)
         repository.trackEvent("yesterday_1")
+        clock.set(baseMillis) // back to "today" before asking what counts as today
 
         val stats = repository.getStatistics(dayWindow = 7)
 

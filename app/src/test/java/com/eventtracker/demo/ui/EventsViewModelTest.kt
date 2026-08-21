@@ -1,5 +1,6 @@
 package com.eventtracker.demo.ui
 
+import androidx.lifecycle.viewModelScope
 import app.cash.turbine.test
 import com.eventtracker.demo.data.DemoConfigRepository
 import com.eventtracker.sdk.model.EventStatistics
@@ -9,6 +10,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -21,14 +23,20 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
+/**
+ * The ViewModel launches an unbounded `while (isActive) { refreshStatistics(); delay(3s) }` loop
+ * on `viewModelScope` for the Statistics section. `Dispatchers.setMain(aTestDispatcher)` couples
+ * `Dispatchers.Main`'s notion of "time" to whichever `runTest` is currently active (this is a
+ * deliberate kotlinx-coroutines-test integration, not scoped to parent/child job structure) — so
+ * without an explicit stop signal, `runTest`'s end-of-test idle-drain tries to fast-forward
+ * through that infinite loop forever and the test hangs pegging a CPU core. The fix used
+ * throughout this file: explicitly cancel `viewModel.viewModelScope` as the last step of every
+ * test, exactly like the real ViewModel lifecycle does via `onCleared()` when it's actually
+ * destroyed — this is not a workaround so much as reproducing production behavior in the test.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class EventsViewModelTest {
 
-    // Unconfined, not Standard: the ViewModel launches an unbounded `while (isActive) { delay(3s) }`
-    // statistics-polling loop on viewModelScope. With a shared/Standard test scheduler, runTest's
-    // end-of-test idle-drain would try to fast-forward through that loop forever and hang. With
-    // Unconfined, viewModelScope coroutines run eagerly to their first real suspension point (the
-    // delay), then simply park there — invisible to runTest's own, separate scheduler.
     private val dispatcher = UnconfinedTestDispatcher()
     private lateinit var gateway: FakeSdkGateway
     private lateinit var configRepository: DemoConfigRepository
@@ -56,8 +64,9 @@ class EventsViewModelTest {
 
     @Test
     fun `init tracks a screen_viewed event`() = runTest {
-        createViewModel()
+        val viewModel = createViewModel()
         assertTrue(gateway.trackCalls.any { it.name == "screen_viewed" })
+        viewModel.viewModelScope.cancel()
     }
 
     @Test
@@ -65,6 +74,7 @@ class EventsViewModelTest {
         val viewModel = createViewModel()
         assertEquals("7", viewModel.state.value.retentionDaysInput)
         assertEquals("100", viewModel.state.value.eventLimitInput)
+        viewModel.viewModelScope.cancel()
     }
 
     @Test
@@ -75,6 +85,7 @@ class EventsViewModelTest {
         val call = gateway.trackCalls.last()
         assertTrue(call.name.startsWith("test_event_"))
         assertTrue(call.properties.isEmpty())
+        viewModel.viewModelScope.cancel()
     }
 
     @Test
@@ -85,6 +96,7 @@ class EventsViewModelTest {
         val call = gateway.trackCalls.last()
         assertEquals("button_click", call.name)
         assertEquals(mapOf("screen" to "home", "action" to "submit"), call.properties)
+        viewModel.viewModelScope.cancel()
     }
 
     @Test
@@ -94,6 +106,7 @@ class EventsViewModelTest {
         runCurrent()
 
         assertEquals(100, gateway.trackCalls.count { it.name.startsWith("stress_test_event_") })
+        viewModel.viewModelScope.cancel()
     }
 
     @Test
@@ -103,6 +116,7 @@ class EventsViewModelTest {
         runCurrent()
 
         assertEquals(1, gateway.clearAllCallCount)
+        viewModel.viewModelScope.cancel()
     }
 
     @Test
@@ -117,6 +131,7 @@ class EventsViewModelTest {
         verify { configRepository.eventLimit = 200 }
         assertEquals(FakeSdkGateway.ConfigUpdate(14, 200), gateway.configUpdates.last())
         assertTrue(gateway.trackCalls.any { it.name == "config_updated" })
+        viewModel.viewModelScope.cancel()
     }
 
     @Test
@@ -127,6 +142,7 @@ class EventsViewModelTest {
         viewModel.onApplyConfigClicked()
 
         verify { configRepository.retentionDays = 7 } // falls back to the mocked persisted value
+        viewModel.viewModelScope.cancel()
     }
 
     @Test
@@ -140,6 +156,7 @@ class EventsViewModelTest {
             runCurrent()
             assertEquals(events, awaitItem().events)
         }
+        viewModel.viewModelScope.cancel()
     }
 
     @Test
@@ -149,5 +166,6 @@ class EventsViewModelTest {
 
         assertEquals(5, viewModel.state.value.totalCount)
         assertEquals(2, viewModel.state.value.todayCount)
+        viewModel.viewModelScope.cancel()
     }
 }
