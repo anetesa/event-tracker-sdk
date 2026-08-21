@@ -2,9 +2,10 @@ name: CI/CD
 
 # GitHub Flow: main is always deployable. Feature branches open a PR into main — the `test`
 # job gates the merge and always runs, on every push and PR, regardless of what changed.
-# `publish-prerelease` only runs on push to main, and only when the SDK itself changed —
-# demo-app-only commits (UI tweaks, etc.) don't cut a new pre-release, since the SDK is the
-# graded deliverable and the release is meant to track its versions.
+# `publish-prerelease` only runs on push to main, and only when the SDK itself changed — a new
+# tagged release is meant to track SDK versions, not demo-app tweaks. When main advances WITHOUT
+# an SDK change, `refresh-latest-apk` instead swaps the demo APK asset on the most recent existing
+# release in place (no new tag), so the released APK still always matches current main.
 
 on:
   push:
@@ -109,3 +110,47 @@ jobs:
           files: |
             eventtrackersdk/build/outputs/aar/eventtrackersdk-debug.aar
             app/build/outputs/apk/debug/app-debug.apk
+
+  refresh-latest-apk:
+    needs: [test, changes]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.sdk == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Find latest release tag
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release list --limit 1 --json tagName --jq '.[0].tagName // empty')
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK 17
+        if: steps.latest.outputs.tag != ''
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        if: steps.latest.outputs.tag != ''
+        uses: android-actions/setup-android@v3
+
+      - name: Grant execute permission for gradlew
+        if: steps.latest.outputs.tag != ''
+        run: chmod +x gradlew
+
+      - name: Assemble demo debug APK
+        if: steps.latest.outputs.tag != ''
+        run: ./gradlew :app:assembleDebug --console=plain
+
+      - name: Swap APK asset on the latest release
+        if: steps.latest.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ steps.latest.outputs.tag }}" app/build/outputs/apk/debug/app-debug.apk --clobber
