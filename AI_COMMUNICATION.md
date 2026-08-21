@@ -142,6 +142,73 @@ tests, and finally the docs.
    suite on its own isn't proof of anything; someone still has to read the assertions, not just
    run them.
 
+3. **A self-triggering write loop the first pass didn't anticipate.** The "seen" flag is written
+   as a side effect of the UI observing the event list: every emission from `observeRecentEvents()`
+   marks its rows seen. The first version wrote unconditionally on every emission:
+
+   ```kotlin
+   // AI-generated first pass — re-writes isSeen=1 on every emission, including rows
+   // already marked seen:
+   .onEach { rows ->
+       if (rows.isNotEmpty()) {
+           scope.launch { dao.markSeen(rows.map { it.id }) }
+       }
+   }
+   ```
+
+   Room's `Flow` re-runs its query and re-emits on *any* write to the observed table, not only
+   ones that change the result — so that `markSeen` write itself re-triggered the same emission,
+   which triggered the same write again, indefinitely, for as long as a collector was attached
+   (i.e. the whole time the app was in the foreground). This was caught during a dedicated
+   deep-review pass run specifically to look for exactly this class of issue, not during initial
+   implementation. Fix:
+
+   ```kotlin
+   // Corrected — only writes for rows not already marked seen, so the loop has a fixed point:
+   .onEach { rows ->
+       val newlySeenIds = rows.filter { !it.isSeen }.map { it.id }
+       if (newlySeenIds.isNotEmpty()) {
+           scope.launch { dao.markSeen(newlySeenIds) }
+       }
+   }
+   ```
+
+   **Verification**: added a regression test using a `MutableSharedFlow`-backed DAO double
+   (deliberately not the existing `MutableStateFlow`-backed fake, which dedupes equal emissions
+   and can't reproduce Room's actual behavior) that emits the same row twice — once unseen, once
+   already marked seen — and asserts `markSeen` is only called on the first emission. Also
+   confirmed on a physical device: CPU usage measured via `top`/`/proc/<pid>/stat` over a 10-second
+   idle window with 100 already-displayed events sitting in the database dropped to near-zero
+   (under 1.5% CPU, sleeping state), rather than staying pegged.
+
+4. **A background scope with no exception handler.** The SDK's internal `CoroutineScope` was
+   built with just a `SupervisorJob`, which stops a failing child from cancelling its siblings but
+   does *not* swallow the exception itself — an unhandled failure from a background write (a
+   disk-full Room error, say) would have propagated uncaught and crashed the host app, directly
+   contradicting the documented "`track()` never crashes the caller" guarantee. This was also
+   caught by the same deep-review pass rather than the initial implementation. Fix: added a
+   `CoroutineExceptionHandler` that logs and swallows, wired into the scope's construction
+   (`CoroutineScope(SupervisorJob() + Dispatchers.IO + exceptionHandler)`). **Verification**: code
+   review confirmed the handler is actually attached to the scope (not merely declared unused),
+   and the existing concurrency tests still pass with it in place.
+
+5. **An ordering bug that AI's own review pass missed, and manual testing caught.** After the
+   deep-review pass above, the event list was still capable of rendering out of order: tapping
+   "Track 100 Events" could show `stress_test_event_97` at the top instead of `_99`, with the
+   visible sequence not monotonic. Root cause: `timestamp` is millisecond-resolution
+   `System.currentTimeMillis()`, and a tight loop issuing 100 `track()` calls routinely inserts
+   several rows within the same millisecond; `ORDER BY timestamp DESC` alone has no guaranteed
+   order among ties. This one is worth calling out specifically because neither the initial
+   implementation nor the dedicated deep-review pass caught it — it only surfaced from actually
+   running the stress-test button on a device and reading the resulting list, which is exactly the
+   kind of gap a code-only review (however thorough) can miss. Fix: added `rowid DESC` as a
+   secondary sort key in `observeRecent()`/`deleteExceedingCount()` — SQLite's implicit `rowid`
+   (the table has no `INTEGER PRIMARY KEY`, so it isn't `WITHOUT ROWID`) increases monotonically
+   with insertion order, giving a deterministic tiebreaker with no schema change. **Verification**:
+   a regression test inserting three same-timestamp rows and asserting they come back in reverse
+   insertion order, plus a repeat of the on-device "Track 100 Events" check confirming the newest
+   item shown was `_99` and the sequence descended monotonically from there.
+
 ## How AI-generated code was verified
 
 - `./gradlew :eventtrackersdk:compileDebugKotlin :app:compileDebugKotlin`, run once the SDK and
@@ -160,6 +227,16 @@ tests, and finally the docs.
   neither duplicating the WorkManager job nor losing any tracked events.
 - A repository-wide sweep for stray control-byte artifacts (see bug #1 above), run after the
   first one turned up, to rule out the same transcription glitch elsewhere.
+- A dedicated deep code-review pass over the whole diff after the initial implementation felt
+  complete, specifically looking for correctness bugs, reuse/simplification opportunities, and
+  requirements the spec asked for that hadn't been traced end to end. That pass is what surfaced
+  bugs #3 and #4 above; bug #5 slipped past even that and only showed up once the stress-test
+  button was actually tapped on a physical device and the resulting list was read by eye — a
+  reminder that a review pass, however thorough, is not a substitute for running the thing.
+- Physical-device verification beyond the initial smoke test: installing a fresh build, clearing
+  app data, running the full button sequence, and — for bug #3 specifically — sampling CPU usage
+  via `adb shell top`/`/proc/<pid>/stat` during an idle window to confirm the fix actually stopped
+  the background write loop rather than just looking right in the code.
 
 ## Time saved vs. time spent debugging AI output
 
@@ -169,8 +246,10 @@ reviewing and lightly correcting AI-generated equivalents of the same. The archi
 pass stands out in particular: it surfaced both the date-string sort bug and the seen/clear
 design before any code existed, and that class of bug is normally expensive to catch later via a
 failing test rather than during design review, so it likely paid for itself several times over.
-On the other side of the ledger, the two bugs documented above — the stray form-feed byte and the
-tautological test assertions — both needed a manual re-read to catch; neither "the code compiles"
-nor, in the tautological-assertion case, "the tests pass" would have caught them. That re-reading
-step is the actual cost of relying on AI-generated code here, and it was treated as mandatory
-rather than optional for exactly that reason.
+On the other side of the ledger, none of the five bugs documented above were caught by "the code
+compiles" or "the tests pass" on their own — the first two needed a manual re-read, the next two
+needed a deliberate second review pass looking specifically for correctness issues rather than
+just confirming the happy path, and the last needed the app to actually run on a device. That
+layered verification — re-read, dedicated review, physical device — was the real cost of relying
+on AI-generated code here, and each layer caught something the previous one didn't; treating any
+one of them as sufficient on its own would have shipped a real bug.
