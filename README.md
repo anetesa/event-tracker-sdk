@@ -1,14 +1,14 @@
 # Event Tracker SDK
 
-An Android event-tracking SDK (`:eventtrackersdk`, an Android Library module) plus a demo app
-(`:app`) that exercises it, built as a take-home technical exam.
+A take-home technical exam: an Android event-tracking SDK (`:eventtrackersdk`, packaged as an
+Android Library module) alongside a demo app (`:app`) that puts it through its paces.
 
 ## Modules
 
-- **`:eventtrackersdk`** — the SDK. No Hilt, no Compose, no dependency on any DI framework —
-  it's a self-contained drop-in library. Depends only on Room, WorkManager, and
+- **`:eventtrackersdk`** — the SDK itself. No Hilt, no Compose, no DI-framework dependency of any
+  kind — a self-contained, drop-in library. Its only dependencies are Room, WorkManager, and
   kotlinx-coroutines.
-- **`:app`** — demo app. Kotlin + Jetpack Compose (Material 3) + Hilt, single screen.
+- **`:app`** — the demo app: Kotlin, Jetpack Compose (Material 3), Hilt, a single screen.
 
 ## SDK public API
 
@@ -23,26 +23,29 @@ EventTrackerSDK.clearAllEvents() // suspend, deletes only events the UI has disp
 
 ## Design notes
 
-- **Thread safety / non-blocking track()**: the SDK owns a `CoroutineScope(SupervisorJob() +
-  Dispatchers.IO)`. `track()` launches a coroutine on that scope and returns immediately; Room
-  serializes the actual writes safely under the hood.
-- **Idempotent init**: double-checked locking (`synchronized` + a `@Volatile` published-last
-  flag) — the first call in a process wins, every later call (including concurrent racing ones)
-  is a no-op.
-- **The "seen" rule**: `EventEntity.isSeen` starts `false` and flips to `true` the moment a batch
-  of rows is delivered to `getRecentEvents()`'s collector (i.e. displayed by the UI).
-  `clearAllEvents()` only deletes rows where `isSeen = true`. The demo's displayed list is capped
-  to the configured max event count, so a stress-tracked burst that pushes the total past that
-  cap leaves the oldest overflow rows genuinely unseen and provably protected from "Clear All" —
-  see `EventTrackerViewModel`/`CleanupWorker` doc comments for the full reasoning, including why
-  automatic retention/count cleanup deliberately does *not* honor this flag.
-- **WorkManager**: `enqueueUniquePeriodicWork(..., ExistingPeriodicWorkPolicy.KEEP, ...)`, 24h
-  period, 1h initial delay. `KEEP` means re-initializing the SDK across process restarts never
-  creates a duplicate job.
-- **JSON encoding**: a small hand-rolled codec (`PropertiesJsonCodec`) instead of
-  `org.json.JSONObject`, since properties are always a flat `Map<String, String>` and
-  `org.json`'s real Android implementation throws under plain JUnit (Robolectric-only), which
-  would force a heavier test setup for no real benefit here.
+- **Thread safety and a non-blocking `track()`**: the SDK keeps its own
+  `CoroutineScope(SupervisorJob() + Dispatchers.IO)`. Calling `track()` just launches a coroutine
+  on that scope and hands control back to the caller immediately — Room takes care of serializing
+  the actual writes underneath.
+- **Idempotent `init()`**: double-checked locking (a `synchronized` block plus a `@Volatile`
+  flag published last) means whichever call reaches the process first wins; every subsequent
+  call — even racing ones from other threads — is simply ignored.
+- **The "seen" rule**: `EventEntity.isSeen` starts out `false` and only becomes `true` once a
+  batch of rows has actually reached `getRecentEvents()`'s collector — in other words, once the
+  UI has displayed them. `clearAllEvents()` deletes exclusively the rows where `isSeen = true`.
+  Because the demo's displayed list is capped to the configured max event count, a stress-tracked
+  burst that pushes the total past that ceiling leaves the oldest overflow rows genuinely unseen,
+  and therefore provably shielded from "Clear All." The full reasoning — including why the
+  automatic retention/count cleanup deliberately ignores this flag — lives in the doc comments on
+  `EventsViewModel` and `CleanupWorker`.
+- **WorkManager**: `enqueueUniquePeriodicWork(..., ExistingPeriodicWorkPolicy.KEEP, ...)` on a
+  24-hour period with a 1-hour initial delay. The `KEEP` policy guarantees that re-initializing
+  the SDK across process restarts never spawns a duplicate job.
+- **JSON encoding**: properties get encoded through a small hand-rolled codec
+  (`PropertiesJsonCodec`) rather than `org.json.JSONObject`. Properties are always a flat
+  `Map<String, String>`, and `org.json`'s real Android implementation throws under plain JUnit
+  (it only cooperates with Robolectric), which would mean dragging in a heavier test setup for no
+  real payoff here.
 
 ## Building & testing
 
@@ -53,4 +56,5 @@ export ANDROID_HOME="$HOME/Library/Android/sdk"
 ./gradlew testDebugUnitTest
 ```
 
-See `AI_COMMUNICATION.md` for the AI-assisted development log and `TODO.md` for known gaps.
+For the AI-assisted development log, see `AI_COMMUNICATION.md`; known gaps are tracked in
+`TODO.md`.
