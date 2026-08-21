@@ -21,6 +21,28 @@ Listed per the exam's "list of TODOs in case you do not finish the task" require
   wrapping `EventDao` behind a decorator or moving seen-tracking state into the repository itself,
   which felt like more architecture than this exam's scope warranted — but worth flagging for
   anyone extending this code.
+- **MVVM, not strict MVI, in the demo app.** `EventsViewModel` exposes a single `StateFlow<EventsUiState>`
+  (the "state" half of MVI) but plain public methods (`onTrackEventClicked()`, `onApplyConfigClicked()`,
+  etc.) instead of a `sealed interface EventsIntent` + one `onIntent(intent)` dispatch entry point,
+  and there's no one-shot effect channel (no navigation, and no error/snackbar events are surfaced
+  today). MVI's usual payoff — intents as replayable/loggable data, one funnel for every state
+  mutation, an effect channel for exactly-once events — has little to bite on here: one screen, no
+  navigation, no multi-step flows, no effects to sequence. Each handler is already independently
+  unit-tested (`EventsViewModelTest`), so MVI's testability argument doesn't add much either. Adding
+  the ceremony would be process for its own sake rather than solving a real problem this app has.
+  Would reconsider if the screen grows navigation targets or needs one-shot UI events (e.g. a
+  snackbar on a failed action).
+- **Package-level layering, not a domain/data Gradle module split, inside `:eventtrackersdk`.**
+  The SDK separates concerns via packages (`model`, `internal.repository`, `internal.db`,
+  `internal.work`, `internal.config`/`internal.util`) rather than further splitting into e.g.
+  `:eventtrackersdk:domain` / `:eventtrackersdk:data` submodules the way a *feature* inside a larger
+  multi-module consumer app might. Reasoning: `:eventtrackersdk` **is** the single required
+  deliverable ("the SDK must be an Android Library module," singular) — turning it into several
+  glued-together modules would fragment that one artifact rather than clarify it, for a codebase
+  small enough (~15 Kotlin files) that packages already give the same isolation (an `EventRepository`
+  interface for DIP, `internal` visibility keeping Room out of the public API) without the extra
+  Gradle wiring. Would reconsider only if the SDK grew enough independent features to want separate
+  build/test cycles per layer.
 
 ## Not implemented / out of scope for the exam's time budget
 
