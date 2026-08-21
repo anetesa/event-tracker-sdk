@@ -59,7 +59,12 @@ Provided per the exam's request for "a list of TODOs in case you do not finish t
 - No localization — UI strings are English-only, which the spec doesn't ask to change.
 - No inline validation error shown to the user for non-numeric config input; it quietly falls
   back to the previously persisted value instead of surfacing a field-level error.
-- No proguard/R8 keep-rules audit for the release build variant beyond AGP's own defaults — only
-  the debug build got a manual smoke test.
+- **Only a debug build was produced and submitted** (the shared APK, and the AAR published on
+  GitHub releases). The spec asks for "APK of the demo app" without specifying a build variant,
+  and a release build needs its own signing config — `app/build.gradle.kts` declares a `release`
+  buildType with `isMinifyEnabled = true`, but no keystore/`signingConfig` was ever set up for it,
+  since nothing in the spec calls for a signed release artifact. `./gradlew assembleRelease` would
+  need that added first. Consequently there's also no proguard/R8 keep-rules audit beyond AGP's
+  defaults — only the debug build got a manual smoke test.
 - The real-world impact of Doze/battery optimization on the periodic cleanup job's timing is
   understood in theory but hasn't been confirmed on a physical device.
