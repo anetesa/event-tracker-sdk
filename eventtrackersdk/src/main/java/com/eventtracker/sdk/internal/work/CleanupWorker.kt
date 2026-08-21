@@ -1,6 +1,7 @@
 package com.eventtracker.sdk.internal.work
 
 import android.content.Context
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.eventtracker.sdk.internal.config.SdkConfigStore
@@ -42,10 +43,14 @@ internal class CleanupWorker(
         }
     }.fold(
         onSuccess = { Result.success() },
-        onFailure = { Result.retry() },
+        onFailure = { error ->
+            Log.e(TAG, "Cleanup run failed, will retry", error)
+            Result.retry()
+        },
     )
 
     companion object {
+        private const val TAG = "CleanupWorker"
         const val UNIQUE_WORK_NAME = "event_tracker_cleanup"
     }
 }

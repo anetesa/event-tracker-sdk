@@ -10,5 +10,4 @@ data class EventsUiState(
     val events: List<TrackedEvent> = emptyList(),
     val retentionDaysInput: String = "",
     val eventLimitInput: String = "",
-    val isStressTestRunning: Boolean = false,
 )

@@ -14,6 +14,7 @@ import com.eventtracker.sdk.internal.util.UuidGenerator
 import com.eventtracker.sdk.internal.work.CleanupWorker
 import com.eventtracker.sdk.model.EventStatistics
 import com.eventtracker.sdk.model.TrackedEvent
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -68,7 +69,15 @@ object EventTrackerSDK {
                 this.maxEventCount = maxEventCount
             }
 
-            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+            // A SupervisorJob alone does not swallow exceptions — it only stops a failing child
+            // from cancelling its siblings. Without this handler, an exception from a background
+            // write (e.g. a disk-full Room failure during a burst of track() calls) would
+            // propagate uncaught and crash the host app, violating the "track() never crashes
+            // the caller" guarantee.
+            val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+                Log.e(TAG, "Unhandled exception in EventTrackerSDK background work", throwable)
+            }
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + exceptionHandler)
             repository = EventRepositoryImpl(dao, SystemClock, UuidGenerator, scope)
 
             scheduleCleanupWork(appContext)
@@ -81,11 +90,7 @@ object EventTrackerSDK {
     }
 
     /** Live-updates retention/limit config without requiring re-initialization. Either parameter may be omitted to leave it unchanged. */
-    fun updateConfig(retentionDays: Int? = null, maxEventCount: Int? = null) {
-        if (!initialized) {
-            Log.w(TAG, "updateConfig() called before init() — ignored.")
-            return
-        }
+    fun updateConfig(retentionDays: Int? = null, maxEventCount: Int? = null): Unit = guarded("updateConfig()", Unit) {
         retentionDays?.let { configStore.retentionDays = it }
         maxEventCount?.let { configStore.maxEventCount = it }
     }
@@ -98,43 +103,49 @@ object EventTrackerSDK {
      * If called before [init], the event is dropped and a warning is logged: a mistakenly-early
      * call must not crash the caller, but there is no queue-until-init behavior in this SDK.
      */
-    fun track(name: String, properties: Map<String, String> = emptyMap()) {
-        if (!initialized) {
-            Log.w(TAG, "track(\"$name\") called before init() — event dropped.")
-            return
-        }
+    fun track(name: String, properties: Map<String, String> = emptyMap()): Unit = guarded("track(\"$name\")", Unit) {
         scope.launch { repository.trackEvent(name, properties) }
     }
 
     /** Recent events, newest first, capped to [limit] (clamped to a minimum of 1). */
-    fun getRecentEvents(limit: Int = 50): Flow<List<TrackedEvent>> {
-        if (!initialized) {
-            Log.w(TAG, "getRecentEvents() called before init() — returning empty flow.")
-            return emptyFlow()
-        }
-        return repository.observeRecentEvents(limit)
-    }
+    fun getRecentEvents(limit: Int = 50): Flow<List<TrackedEvent>> =
+        guarded("getRecentEvents()", emptyFlow()) { repository.observeRecentEvents(limit) }
 
     /** Total/today/day-grouped counts. Always executes on a background thread. */
-    suspend fun getStatistics(dayWindow: Int = 7): EventStatistics {
-        if (!initialized) {
-            Log.w(TAG, "getStatistics() called before init() — returning empty statistics.")
-            return EventStatistics(totalCount = 0, todayCount = 0, byDay = emptyList())
+    suspend fun getStatistics(dayWindow: Int = 7): EventStatistics =
+        guardedSuspend("getStatistics()", EventStatistics(totalCount = 0, todayCount = 0, byDay = emptyList())) {
+            repository.getStatistics(dayWindow)
         }
-        return repository.getStatistics(dayWindow)
-    }
 
     /**
      * Deletes all events the UI has already displayed via [getRecentEvents]. Events never yet
      * delivered to that flow are left untouched — see `EventRepositoryImpl` for the exact
      * "seen" semantics.
      */
-    suspend fun clearAllEvents() {
-        if (!initialized) {
-            Log.w(TAG, "clearAllEvents() called before init() — ignored.")
-            return
-        }
+    suspend fun clearAllEvents() = guardedSuspend("clearAllEvents()", Unit) {
         repository.clearAllEvents()
+    }
+
+    /**
+     * Every public method needs the same "did init() actually run yet?" check before touching
+     * the lateinit `repository`/`configStore`/`scope` — kept as these two small helpers instead
+     * of a hand-copied `if (!initialized) {...}` per method, so a future method can't compile
+     * while forgetting the guard.
+     */
+    private inline fun <T> guarded(methodName: String, fallback: T, block: () -> T): T {
+        if (!initialized) {
+            Log.w(TAG, "$methodName called before init() — SDK not initialized, using fallback.")
+            return fallback
+        }
+        return block()
+    }
+
+    private suspend inline fun <T> guardedSuspend(methodName: String, fallback: T, block: suspend () -> T): T {
+        if (!initialized) {
+            Log.w(TAG, "$methodName called before init() — SDK not initialized, using fallback.")
+            return fallback
+        }
+        return block()
     }
 
     private fun scheduleCleanupWork(appContext: Context) {

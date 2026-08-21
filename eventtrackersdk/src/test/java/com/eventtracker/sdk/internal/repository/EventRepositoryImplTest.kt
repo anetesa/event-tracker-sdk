@@ -1,11 +1,16 @@
 package com.eventtracker.sdk.internal.repository
 
 import app.cash.turbine.test
+import com.eventtracker.sdk.internal.db.DayCountRow
+import com.eventtracker.sdk.internal.db.EventDao
+import com.eventtracker.sdk.internal.db.EventEntity
 import com.eventtracker.sdk.internal.db.FakeEventDao
 import com.eventtracker.sdk.internal.util.FakeClock
 import com.eventtracker.sdk.internal.util.FakeIdGenerator
 import com.eventtracker.sdk.internal.util.PropertiesJsonCodec
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -94,5 +99,53 @@ class EventRepositoryImplTest {
 
         assertEquals(1, repository.getStatistics().totalCount)
         assertTrue(dao.allEvents.none { it.isSeen })
+    }
+
+    @Test
+    fun `does not re-write markSeen for rows a later emission already reports as seen`() = runTest {
+        // Room's real Flow re-emits on ANY write to the observed table, including markSeen's own
+        // UPDATE — not just emissions where the query result actually changed. A MutableSharedFlow
+        // (unlike FakeEventDao's MutableStateFlow, which dedupes equal values) reproduces that:
+        // every emit() reaches the collector regardless of content, matching the real bug
+        // scenario this test guards against.
+        val dao = RecordingReemittingDao()
+        val repository: EventRepository = EventRepositoryImpl(dao, FakeClock(baseMillis), FakeIdGenerator(), backgroundScope)
+
+        val notYetSeen = EventEntity(id = "e1", name = "n", propertiesJson = "{}", timestamp = 1L, createdDate = "20/12/2024")
+        // Second emission simulates what a real re-query would return after the first markSeen
+        // write already committed: the same row, now isSeen=true.
+        val alreadySeenAfterFirstWrite = notYetSeen.copy(isSeen = true)
+
+        repository.observeRecentEvents(limit = 10).test {
+            dao.emit(listOf(notYetSeen))
+            assertEquals(1, awaitItem().size)
+            dao.emit(listOf(alreadySeenAfterFirstWrite))
+            assertEquals(1, awaitItem().size)
+            cancelAndIgnoreRemainingEvents()
+        }
+        runCurrent() // let any fire-and-forget markSeen launches complete
+
+        assertEquals(1, dao.markSeenCalls.size) // only for the first, genuinely-unseen emission
+        assertEquals(listOf("e1"), dao.markSeenCalls.single())
+    }
+
+    /** Minimal [EventDao] double whose [observeRecent] never deduplicates emissions, unlike [FakeEventDao]. */
+    private class RecordingReemittingDao : EventDao {
+        val markSeenCalls = mutableListOf<List<String>>()
+        private val flow = MutableSharedFlow<List<EventEntity>>(replay = 0, extraBufferCapacity = 8)
+
+        suspend fun emit(rows: List<EventEntity>) = flow.emit(rows)
+
+        override suspend fun insert(event: EventEntity) = error("not used in this test")
+        override fun observeRecent(limit: Int): Flow<List<EventEntity>> = flow
+        override suspend fun getTotalCount(): Int = error("not used in this test")
+        override suspend fun getTodayCount(today: String): Int = error("not used in this test")
+        override suspend fun getGroupedByDay(days: Int): List<DayCountRow> = error("not used in this test")
+        override suspend fun deleteOlderThan(cutoffMillis: Long) = error("not used in this test")
+        override suspend fun deleteExceedingCount(keepCount: Int) = error("not used in this test")
+        override suspend fun markSeen(ids: List<String>) {
+            markSeenCalls.add(ids)
+        }
+        override suspend fun deleteAllSeen() = error("not used in this test")
     }
 }

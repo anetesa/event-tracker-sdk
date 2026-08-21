@@ -40,10 +40,16 @@ internal class EventRepositoryImpl(
         val safeLimit = limit.coerceAtLeast(1)
         return dao.observeRecent(safeLimit)
             .onEach { rows ->
-                if (rows.isNotEmpty()) {
-                    // Marking seen is a side effect of the row reaching this flow's collector —
-                    // fired on the shared scope so it never blocks/delays delivery to the UI.
-                    scope.launch { dao.markSeen(rows.map { it.id }) }
+                // Only write for rows not already marked seen. Room's Flow re-emits on ANY write
+                // to the "events" table, not just ones that change this query's result — an
+                // unconditional markSeen() here would write on every emission (even redundantly
+                // re-setting isSeen=1 on already-seen rows), which itself triggers another
+                // invalidation/re-emission, forever, for as long as a collector is attached.
+                // Filtering to genuinely-new rows makes the writes — and the loop — terminate.
+                val newlySeenIds = rows.filter { !it.isSeen }.map { it.id }
+                if (newlySeenIds.isNotEmpty()) {
+                    // Fired on the shared scope so it never blocks/delays delivery to the UI.
+                    scope.launch { dao.markSeen(newlySeenIds) }
                 }
             }
             .map { rows -> rows.map(::toPublicModel) }

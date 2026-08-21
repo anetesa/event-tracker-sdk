@@ -15,7 +15,6 @@
 
     <string name="action_track_event">Track Event</string>
     <string name="action_track_100">Track 100 Events</string>
-    <string name="action_track_100_in_progress">Tracking 100 events…</string>
     <string name="action_track_with_properties">Track with Properties</string>
     <string name="action_clear_all">Clear All Events</string>
 

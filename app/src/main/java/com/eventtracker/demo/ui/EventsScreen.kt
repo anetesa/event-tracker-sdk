@@ -53,7 +53,6 @@ fun EventsScreen(viewModel: EventsViewModel) {
         item { HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp)) }
         item {
             ActionButtonsSection(
-                isStressTestRunning = state.isStressTestRunning,
                 onTrackEvent = viewModel::onTrackEventClicked,
                 onTrack100 = viewModel::onTrack100EventsClicked,
                 onTrackWithProperties = viewModel::onTrackWithPropertiesClicked,
@@ -124,7 +123,6 @@ private fun ConfigurationSection(
 
 @Composable
 private fun ActionButtonsSection(
-    isStressTestRunning: Boolean,
     onTrackEvent: () -> Unit,
     onTrack100: () -> Unit,
     onTrackWithProperties: () -> Unit,
@@ -134,12 +132,8 @@ private fun ActionButtonsSection(
         Button(onClick = onTrackEvent, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.action_track_event))
         }
-        Button(onClick = onTrack100, enabled = !isStressTestRunning, modifier = Modifier.fillMaxWidth()) {
-            Text(
-                stringResource(
-                    if (isStressTestRunning) R.string.action_track_100_in_progress else R.string.action_track_100,
-                ),
-            )
+        Button(onClick = onTrack100, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.action_track_100))
         }
         Button(onClick = onTrackWithProperties, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.action_track_with_properties))

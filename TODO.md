@@ -12,6 +12,15 @@ Listed per the exam's "list of TODOs in case you do not finish the task" require
 - The demo's displayed event list is capped to the configured max-event-count value (not an
   independent "page size"), so the "seen" rule has something real to demonstrate. Spec's exact
   wording ("display all events") could be read either way — see `EventsViewModel` doc comment.
+- **The "seen" invariant is a convention, not a structural guarantee.** It's enforced by exactly
+  one place (`EventRepositoryImpl.observeRecentEvents`'s `onEach{}`), and `EventDao` is `internal`
+  rather than private to that class — `CleanupWorker` already reaches `EventDao` directly,
+  bypassing `EventRepository` (by design, since it deliberately skips seen-checking). If a future
+  change adds another read path against `EventDao` (a debug screen, a new SDK method), nothing in
+  the type system stops it from silently never marking rows seen. Not fixed now — would mean
+  wrapping `EventDao` behind a decorator or moving seen-tracking state into the repository itself,
+  which felt like more architecture than this exam's scope warranted — but worth flagging for
+  anyone extending this code.
 
 ## Not implemented / out of scope for the exam's time budget
 

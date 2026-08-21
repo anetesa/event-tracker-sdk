@@ -69,12 +69,19 @@ class EventsViewModel @Inject constructor(
         sdkGateway.track(name)
     }
 
+    /**
+     * `track()` is fire-and-forget by SDK contract (never blocks, no completion signal), so there
+     * is no real "still running" state to report back for this button — issuing 100 calls itself
+     * finishes near-instantly regardless of when the underlying writes land. A previous version
+     * disabled the button behind an `isStressTestRunning` flag that was cleared right after the
+     * calls were *issued*, not after they completed, which just re-enabled the button almost
+     * immediately and didn't actually guard anything. Repeated taps are harmless here — Room
+     * handles concurrent writes safely, and more concurrent load only exercises the "100+ rapid
+     * events without data loss" requirement harder, not incorrectly.
+     */
     fun onTrack100EventsClicked() {
-        if (_state.value.isStressTestRunning) return
-        _state.update { it.copy(isStressTestRunning = true) }
         viewModelScope.launch {
             repeat(100) { i -> sdkGateway.track("stress_test_event_$i", mapOf("batch_index" to i.toString())) }
-            _state.update { it.copy(isStressTestRunning = false) }
         }
     }
 
@@ -100,7 +107,14 @@ class EventsViewModel @Inject constructor(
     fun onApplyConfigClicked() {
         val retentionDays = _state.value.retentionDaysInput.toIntOrNull()?.coerceAtLeast(1)
             ?: configRepository.retentionDays
-        val eventLimit = _state.value.eventLimitInput.toIntOrNull() ?: configRepository.eventLimit
+        // Clamped to >= 1 here, not just passed through: the SDK treats maxEventCount <= 0 as
+        // "unlimited" for its own automatic-cleanup purposes, but that same value is reused below
+        // as this screen's displayed-event-list Flow limit, where <= 0 gets coerced to a minimum
+        // of 1 (EventRepositoryImpl.observeRecentEvents) — so "0 for unlimited" would silently
+        // collapse the demo's event list to a single row instead. Clamping here keeps the demo
+        // from ever exercising that conflicting sentinel through its own UI.
+        val eventLimit = _state.value.eventLimitInput.toIntOrNull()?.coerceAtLeast(1)
+            ?: configRepository.eventLimit
 
         configRepository.retentionDays = retentionDays
         configRepository.eventLimit = eventLimit
