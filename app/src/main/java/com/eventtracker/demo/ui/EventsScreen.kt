@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -16,9 +18,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.eventtracker.demo.R
 import com.eventtracker.sdk.model.DayCount
@@ -101,19 +109,38 @@ private fun ConfigurationSection(
     onEventLimitChanged: (String) -> Unit,
     onApply: () -> Unit,
 ) {
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val eventLimitFocusRequester = remember { FocusRequester() }
+
     Column {
         Text(stringResource(R.string.configuration_title), style = MaterialTheme.typography.titleLarge)
         OutlinedTextField(
             value = retentionDaysInput,
             onValueChange = onRetentionDaysChanged,
             label = { Text(stringResource(R.string.config_retention_label)) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+            keyboardActions = KeyboardActions(onNext = { eventLimitFocusRequester.requestFocus() }),
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         )
         OutlinedTextField(
             value = eventLimitInput,
             onValueChange = onEventLimitChanged,
             label = { Text(stringResource(R.string.config_event_limit_label)) },
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(
+                onDone = {
+                    // Deliberately not calling FocusManager.clearFocus() here: inside this
+                    // LazyColumn it bounces focus back onto the retention field (even with
+                    // force = true) instead of releasing it, leaving the keyboard open on the
+                    // wrong field. Hiding the IME directly is sufficient to close the keyboard;
+                    // the field silently keeping logical focus (with no visible keyboard) is
+                    // harmless.
+                    keyboardController?.hide()
+                },
+            ),
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp).focusRequester(eventLimitFocusRequester),
         )
         Button(onClick = onApply, modifier = Modifier.padding(top = 8.dp)) {
             Text(stringResource(R.string.config_apply_button))
