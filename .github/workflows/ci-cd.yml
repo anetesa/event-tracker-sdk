@@ -1,8 +1,10 @@
 name: CI/CD
 
 # GitHub Flow: main is always deployable. Feature branches open a PR into main — the `test`
-# job gates the merge. Every push to main (i.e. every merge) re-runs tests and then publishes a
-# fresh debug-APK pre-release, tagged with the run number.
+# job gates the merge and always runs, on every push and PR, regardless of what changed.
+# `publish-prerelease` only runs on push to main, and only when the SDK itself changed —
+# demo-app-only commits (UI tweaks, etc.) don't cut a new pre-release, since the SDK is the
+# graded deliverable and the release is meant to track its versions.
 
 on:
   push:
@@ -15,6 +17,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      sdk: ${{ steps.filter.outputs.sdk }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            sdk:
+              - 'eventtrackersdk/**'
+              - 'gradle/libs.versions.toml'
+              - 'build.gradle.kts'
+              - 'settings.gradle.kts'
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -49,8 +67,8 @@ jobs:
           retention-days: 14
 
   publish-prerelease:
-    needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, changes]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.sdk == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -71,18 +89,20 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Assemble demo debug APK
-        run: ./gradlew :app:assembleDebug --console=plain
+      - name: Assemble SDK aar + demo debug APK
+        run: ./gradlew :eventtrackersdk:assembleDebug :app:assembleDebug --console=plain
 
       - name: Compute pre-release tag
         id: vars
-        run: echo "tag=pre-${{ github.run_number }}-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+        run: echo "tag=sdk-pre-${{ github.run_number }}-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Publish pre-release with APK
+      - name: Publish pre-release with SDK aar + demo APK
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.vars.outputs.tag }}
-          name: Pre-release ${{ steps.vars.outputs.tag }}
+          name: SDK pre-release ${{ steps.vars.outputs.tag }}
           prerelease: true
           generate_release_notes: true
-          files: app/build/outputs/apk/debug/app-debug.apk
+          files: |
+            eventtrackersdk/build/outputs/aar/eventtrackersdk-debug.aar
+            app/build/outputs/apk/debug/app-debug.apk
