@@ -11,6 +11,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch: {} # manual "release now" escape hatch, bypasses the SDK-changed gate below
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -23,6 +24,8 @@ jobs:
       sdk: ${{ steps.filter.outputs.sdk }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # paths-filter needs history to diff against on non-PR events
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -68,7 +71,7 @@ jobs:
 
   publish-prerelease:
     needs: [test, changes]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.sdk == 'true'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.sdk == 'true')
     runs-on: ubuntu-latest
     permissions:
       contents: write
