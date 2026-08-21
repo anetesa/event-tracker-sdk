@@ -1,0 +1,88 @@
+name: CI/CD
+
+# GitHub Flow: main is always deployable. Feature branches open a PR into main — the `test`
+# job gates the merge. Every push to main (i.e. every merge) re-runs tests and then publishes a
+# fresh debug-APK pre-release, tagged with the run number.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Unit tests (SDK + demo app)
+        run: ./gradlew testDebugUnitTest --console=plain
+
+      - name: Assemble debug (compile-check both modules)
+        run: ./gradlew assembleDebug --console=plain
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: '**/build/reports/tests/'
+          retention-days: 14
+
+  publish-prerelease:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Assemble demo debug APK
+        run: ./gradlew :app:assembleDebug --console=plain
+
+      - name: Compute pre-release tag
+        id: vars
+        run: echo "tag=pre-${{ github.run_number }}-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish pre-release with APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.vars.outputs.tag }}
+          name: Pre-release ${{ steps.vars.outputs.tag }}
+          prerelease: true
+          generate_release_notes: true
+          files: app/build/outputs/apk/debug/app-debug.apk

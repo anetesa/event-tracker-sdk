@@ -1,0 +1,31 @@
+# TODO / Known Gaps
+
+Listed per the exam's "list of TODOs in case you do not finish the task" requirement.
+
+## Judgment calls worth a second look
+
+- **"Seen" protection scope**: `clearAllEvents()` only deletes events the UI has displayed
+  (`isSeen = true`); the automatic WorkManager retention/count cleanup deliberately does *not*
+  check `isSeen` (see `CleanupWorker` doc comment for the reasoning). If a reviewer intends the
+  protection to also cover automatic cleanup, it's a one-line change: add `AND isSeen = 1` to
+  `deleteOlderThan`/`deleteExceedingCount` in `EventDao`.
+- The demo's displayed event list is capped to the configured max-event-count value (not an
+  independent "page size"), so the "seen" rule has something real to demonstrate. Spec's exact
+  wording ("display all events") could be read either way — see `EventsViewModel` doc comment.
+
+## Not implemented / out of scope for the exam's time budget
+
+- No Compose UI instrumented tests (`androidTest`) — covered instead by ViewModel unit tests with
+  a fake `SdkGateway`.
+- No full WorkManager scheduling integration test on a real device/emulator (`enqueueUniquePeriodicWork`'s
+  actual 24h/1h timing is a framework guarantee, not app logic); only unit-tested that a second
+  `init()` doesn't create a duplicate job entry.
+- No custom launcher icon/adaptive icon — the demo app builds and runs without one (AGP doesn't
+  require it), but a polished submission would add one.
+- No localization — UI strings are English-only (out of scope for the spec).
+- No explicit user-facing validation error message when config input is non-numeric — it silently
+  falls back to the previously persisted value rather than showing an inline field error.
+- No proguard/R8 keep-rules audit for the release build variant beyond the defaults AGP provides;
+  only the debug build was manually smoke-tested.
+- Doze/battery-optimization impact on the periodic cleanup job's real-world timing is understood
+  theoretically but not verified on a physical device.
