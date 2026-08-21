@@ -1,3 +1,23 @@
 <resources>
     <string name="app_name">Event Tracker Demo</string>
+
+    <string name="statistics_title">Statistics</string>
+    <string name="stat_total_events">Total events tracked: %1$d</string>
+    <string name="stat_today_events">Events tracked today: %1$d</string>
+    <string name="stat_by_day_header">By day (last 7 days):</string>
+    <string name="stat_no_events">No events tracked</string>
+    <string name="stat_day_count_row">%1$s - %2$d</string>
+
+    <string name="configuration_title">Configuration</string>
+    <string name="config_retention_label">Retention period (days)</string>
+    <string name="config_event_limit_label">Max events count</string>
+    <string name="config_apply_button">Apply</string>
+
+    <string name="action_track_event">Track Event</string>
+    <string name="action_track_100">Track 100 Events</string>
+    <string name="action_track_100_in_progress">Tracking 100 events…</string>
+    <string name="action_track_with_properties">Track with Properties</string>
+    <string name="action_clear_all">Clear All Events</string>
+
+    <string name="events_header">Events (%1$d)</string>
 </resources>

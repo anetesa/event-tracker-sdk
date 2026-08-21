@@ -17,8 +17,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.eventtracker.demo.R
 import com.eventtracker.sdk.model.DayCount
 import com.eventtracker.sdk.model.TrackedEvent
 import java.time.Instant
@@ -59,7 +61,12 @@ fun EventsScreen(viewModel: EventsViewModel) {
             )
         }
         item { HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp)) }
-        item { Text("Events (${state.events.size})", style = MaterialTheme.typography.titleMedium) }
+        item {
+            Text(
+                stringResource(R.string.events_header, state.events.size),
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
         items(state.events, key = { it.id }) { event ->
             EventRow(event)
         }
@@ -69,15 +76,19 @@ fun EventsScreen(viewModel: EventsViewModel) {
 @Composable
 private fun StatisticsSection(state: EventsUiState) {
     Column {
-        Text("Statistics", style = MaterialTheme.typography.titleLarge)
-        Text("Total events tracked: ${state.totalCount}")
-        Text("Events tracked today: ${state.todayCount}")
-        Text("By day (last 7 days):", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+        Text(stringResource(R.string.statistics_title), style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.stat_total_events, state.totalCount))
+        Text(stringResource(R.string.stat_today_events, state.todayCount))
+        Text(
+            stringResource(R.string.stat_by_day_header),
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(top = 8.dp),
+        )
         if (state.byDay.isEmpty()) {
-            Text("No events tracked")
+            Text(stringResource(R.string.stat_no_events))
         } else {
             state.byDay.forEach { dayCount: DayCount ->
-                Text("${dayCount.date} - ${dayCount.count}")
+                Text(stringResource(R.string.stat_day_count_row, dayCount.date, dayCount.count))
             }
         }
     }
@@ -92,21 +103,21 @@ private fun ConfigurationSection(
     onApply: () -> Unit,
 ) {
     Column {
-        Text("Configuration", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.configuration_title), style = MaterialTheme.typography.titleLarge)
         OutlinedTextField(
             value = retentionDaysInput,
             onValueChange = onRetentionDaysChanged,
-            label = { Text("Retention period (days)") },
+            label = { Text(stringResource(R.string.config_retention_label)) },
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         )
         OutlinedTextField(
             value = eventLimitInput,
             onValueChange = onEventLimitChanged,
-            label = { Text("Max events count") },
+            label = { Text(stringResource(R.string.config_event_limit_label)) },
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         )
         Button(onClick = onApply, modifier = Modifier.padding(top = 8.dp)) {
-            Text("Apply")
+            Text(stringResource(R.string.config_apply_button))
         }
     }
 }
@@ -121,16 +132,20 @@ private fun ActionButtonsSection(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Button(onClick = onTrackEvent, modifier = Modifier.fillMaxWidth()) {
-            Text("Track Event")
+            Text(stringResource(R.string.action_track_event))
         }
         Button(onClick = onTrack100, enabled = !isStressTestRunning, modifier = Modifier.fillMaxWidth()) {
-            Text(if (isStressTestRunning) "Tracking 100 events..." else "Track 100 Events")
+            Text(
+                stringResource(
+                    if (isStressTestRunning) R.string.action_track_100_in_progress else R.string.action_track_100,
+                ),
+            )
         }
         Button(onClick = onTrackWithProperties, modifier = Modifier.fillMaxWidth()) {
-            Text("Track with Properties")
+            Text(stringResource(R.string.action_track_with_properties))
         }
         OutlinedButton(onClick = onClearAll, modifier = Modifier.fillMaxWidth()) {
-            Text("Clear All Events")
+            Text(stringResource(R.string.action_clear_all))
         }
     }
 }
