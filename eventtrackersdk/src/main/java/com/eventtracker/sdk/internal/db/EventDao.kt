@@ -12,7 +12,16 @@ internal interface EventDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(event: EventEntity)
 
-    @Query("SELECT * FROM events ORDER BY timestamp DESC LIMIT :limit")
+    /**
+     * `rowid DESC` is a tiebreaker for `timestamp DESC`, not just cosmetic: `timestamp` is
+     * millisecond-resolution `System.currentTimeMillis()`, and a tight loop (e.g. "Track 100
+     * Events") routinely inserts several rows within the same millisecond. Without a secondary
+     * key, SQLite doesn't guarantee any particular order among ties, so the "newest first" list
+     * could render out of insertion order. SQLite's implicit `rowid` (this table has no
+     * `INTEGER PRIMARY KEY`, so it isn't a WITHOUT ROWID table) increases monotonically with
+     * insertion order, making it a reliable, zero-schema-change tiebreaker.
+     */
+    @Query("SELECT * FROM events ORDER BY timestamp DESC, rowid DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<EventEntity>>
 
     @Query("SELECT COUNT(*) FROM events")
@@ -44,7 +53,7 @@ internal interface EventDao {
     @Query(
         """
         DELETE FROM events
-        WHERE id NOT IN (SELECT id FROM events ORDER BY timestamp DESC LIMIT :keepCount)
+        WHERE id NOT IN (SELECT id FROM events ORDER BY timestamp DESC, rowid DESC LIMIT :keepCount)
         """,
     )
     suspend fun deleteExceedingCount(keepCount: Int)

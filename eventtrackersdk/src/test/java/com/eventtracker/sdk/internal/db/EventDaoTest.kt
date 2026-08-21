@@ -75,6 +75,20 @@ class EventDaoTest {
     }
 
     @Test
+    fun `observeRecent breaks timestamp ties by insertion order, newest insert first`() = runBlocking {
+        // A rapid-fire loop (e.g. the demo's "Track 100 Events") can insert many rows within the
+        // same millisecond, since timestamp is System.currentTimeMillis() resolution. Without a
+        // tiebreaker, SQLite's ORDER BY timestamp DESC has no guaranteed order among ties.
+        dao.insert(entity("first", timestamp = 5000L, createdDate = "01/01/2024"))
+        dao.insert(entity("second", timestamp = 5000L, createdDate = "01/01/2024"))
+        dao.insert(entity("third", timestamp = 5000L, createdDate = "01/01/2024"))
+
+        val recent = dao.observeRecent(10).first()
+
+        assertEquals(listOf("third", "second", "first"), recent.map { it.id })
+    }
+
+    @Test
     fun `getGroupedByDay orders by most recent day even when date strings sort lexicographically wrong`() = runBlocking {
         // "01/12/2025" would sort before "25/11/2025" as plain strings, even though
         // 25 Nov 2025 predates 1 Dec 2025 chronologically — the DAO must order by the
