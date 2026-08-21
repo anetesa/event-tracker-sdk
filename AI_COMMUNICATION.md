@@ -6,6 +6,38 @@
   session with file read/write/edit and shell (Gradle) tool access. All source code, tests, and
   this document were produced through this single tool across one session.
 
+### Specific Claude Code capabilities used
+
+- **Plan Mode** (`EnterPlanMode`/`ExitPlanMode`) — used once, before any code was written, to
+  produce and get explicit sign-off on the full architecture (module layout, public API, Room
+  schema, the "seen event" mechanism, WorkManager wiring, edge cases, test plan, build order).
+- **A "Plan" sub-agent** (the `Agent` tool with `subagent_type: "Plan"`) — one sub-agent was
+  spawned during the plan-mode pass specifically to draft and cross-check that architecture
+  against the spec's requirements before it was presented for approval; its output became the
+  approved plan almost verbatim.
+- **`AskUserQuestion`** — used once, before scaffolding anything, to resolve a genuine fork the
+  assistant couldn't infer on its own: build this exam as a brand-new project, or reuse/repurpose
+  an unrelated existing Android practice repo in the same GitHub account (different `minSdk`,
+  unrelated modules). The user picked "new project."
+- **`Monitor`** (an async log/condition watcher) — used repeatedly to wait on long-running local
+  Gradle test runs and on GitHub Actions CI runs without polling in a blocking loop, so the
+  assistant could keep working and get pinged only on state changes or completion.
+- Plain **Bash** (Gradle, `git`, GitHub CLI `gh`) and the editor's **Read/Write/Edit** file tools
+  for everything else — writing source files, running builds/tests, diagnosing the ViewModel-test
+  hang via `jstack`, creating the private GitHub repo, and managing commits/pushes.
+
+### What was *not* used, and why
+
+This machine's Claude Code setup also has a large "Ruflo" MCP toolset available globally (swarm
+orchestration, a shared memory/agent-coordination server, dozens of `mcp__ruflo__*` tools) and a
+library of pre-built Skills. None of it was invoked for this task. The exam is a single-developer,
+single-session, same-day deliverable with a linear dependency chain (schema → repository → facade
+→ worker → app → tests) — there was no genuinely parallel, multi-agent-worthy work to coordinate,
+and no repeatable workflow that would justify reaching for a packaged Skill over just writing the
+code directly. Reaching for swarm/multi-agent tooling here would have added coordination overhead
+without a corresponding benefit, which is itself a judgment call worth being explicit about rather
+than silently omitting.
+
 ## Process
 
 The spec was pasted in full, then explicitly planned before any code was written (a "plan mode"
