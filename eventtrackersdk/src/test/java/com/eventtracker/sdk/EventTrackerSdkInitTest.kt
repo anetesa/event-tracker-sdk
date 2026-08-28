@@ -12,8 +12,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Robolectric gives each test its own classloader sandbox, so [EventTrackerSDK]'s object-level
- * state is naturally reset between test methods here — no manual reflection-based reset needed.
+ * Robolectric даёт каждому тесту собственную песочницу classloader'а, поэтому object-состояние
+ * [EventTrackerSDK] здесь естественным образом сбрасывается между тестовыми методами — ручной
+ * сброс через рефлексию не нужен.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [26])
@@ -25,7 +26,7 @@ class EventTrackerSdkInitTest {
         WorkManagerTestInitHelper.initializeTestWorkManager(context)
 
         EventTrackerSDK.init(context, retentionDays = 3, maxEventCount = 50)
-        EventTrackerSDK.init(context, retentionDays = 999, maxEventCount = 999) // must be ignored
+        EventTrackerSDK.init(context, retentionDays = 999, maxEventCount = 999) // должно быть проигнорировано
 
         val workInfos = WorkManager.getInstance(context)
             .getWorkInfosForUniqueWork(CleanupWorker.UNIQUE_WORK_NAME)
@@ -35,8 +36,8 @@ class EventTrackerSdkInitTest {
 
     @Test
     fun `track before init drops the event without throwing`() {
-        // No init() call in this test at all.
+        // В этом тесте init() вообще не вызывается.
         EventTrackerSDK.track("too_early", mapOf("k" to "v"))
-        // Reaching this line without an exception is the assertion.
+        // Сама проверка — это то, что мы дошли до этой строки без исключения.
     }
 }

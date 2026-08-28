@@ -24,12 +24,13 @@ class EventsViewModel @Inject constructor(
 ) : ViewModel() {
 
     /**
-     * List display is capped to the same value as the configured event limit — this ties the
-     * exam's "seen events are protected from Clear All" requirement directly to the
-     * user-configurable event count: if more than [DemoConfigRepository.eventLimit] events exist
-     * (e.g. right after "Track 100 Events" also counting the app's own startup events), the
-     * oldest overflow rows never appear in this capped list, are therefore never marked seen,
-     * and are provably left untouched by "Clear All Events".
+     * Отображение списка ограничено тем же значением, что и настроенный лимит событий — это
+     * напрямую связывает требование экзамена "просмотренные события защищены от Clear All" с
+     * настраиваемым пользователем количеством событий: если существует больше событий, чем
+     * [DemoConfigRepository.eventLimit] (например, сразу после "Track 100 Events", с учётом ещё
+     * и собственных стартовых событий приложения), самые старые лишние строки никогда не
+     * попадают в этот ограниченный список, а значит никогда не помечаются как seen, и
+     * доказуемо остаются нетронутыми при "Clear All Events".
      */
     private val eventListLimit = MutableStateFlow(configRepository.eventLimit)
 
@@ -47,9 +48,9 @@ class EventsViewModel @Inject constructor(
                 .flatMapLatest { limit -> sdkGateway.recentEvents(limit) }
                 .collect { events -> _state.update { it.copy(events = events) } }
         }
-        // Spec ties "auto-refresh every 3 seconds" specifically to the Statistics Section; the
-        // event list above is reactive/live instead, since spec separately says the list "must
-        // update when new events are tracked".
+        // ТЗ привязывает "автообновление каждые 3 секунды" именно к секции статистики; список
+        // событий выше вместо этого реактивный/живой, поскольку ТЗ отдельно говорит, что список
+        // "должен обновляться при появлении новых отслеженных событий".
         viewModelScope.launch {
             while (isActive) {
                 refreshStatistics()
@@ -70,14 +71,15 @@ class EventsViewModel @Inject constructor(
     }
 
     /**
-     * `track()` is fire-and-forget by SDK contract (never blocks, no completion signal), so there
-     * is no real "still running" state to report back for this button — issuing 100 calls itself
-     * finishes near-instantly regardless of when the underlying writes land. A previous version
-     * disabled the button behind an `isStressTestRunning` flag that was cleared right after the
-     * calls were *issued*, not after they completed, which just re-enabled the button almost
-     * immediately and didn't actually guard anything. Repeated taps are harmless here — Room
-     * handles concurrent writes safely, and more concurrent load only exercises the "100+ rapid
-     * events without data loss" requirement harder, not incorrectly.
+     * По контракту SDK `track()` — это fire-and-forget (никогда не блокирует, не даёт сигнала
+     * о завершении), так что для этой кнопки нет реального состояния "всё ещё выполняется",
+     * которое можно было бы вернуть наружу — сама выдача 100 вызовов завершается почти мгновенно,
+     * независимо от того, когда долетят реальные записи. В предыдущей версии кнопка блокировалась
+     * флагом `isStressTestRunning`, который сбрасывался сразу после того, как вызовы были
+     * *выданы*, а не после того, как они завершились — это просто почти сразу же снова включало
+     * кнопку и фактически ничего не защищало. Повторные нажатия здесь безвредны — Room безопасно
+     * обрабатывает конкурентные записи, а дополнительная конкурентная нагрузка лишь сильнее
+     * нагружает требование "100+ быстрых событий без потери данных", а не нарушает его.
      */
     fun onTrack100EventsClicked() {
         viewModelScope.launch {
@@ -107,12 +109,14 @@ class EventsViewModel @Inject constructor(
     fun onApplyConfigClicked() {
         val retentionDays = _state.value.retentionDaysInput.toIntOrNull()?.coerceAtLeast(1)
             ?: configRepository.retentionDays
-        // Clamped to >= 1 here, not just passed through: the SDK treats maxEventCount <= 0 as
-        // "unlimited" for its own automatic-cleanup purposes, but that same value is reused below
-        // as this screen's displayed-event-list Flow limit, where <= 0 gets coerced to a minimum
-        // of 1 (EventRepositoryImpl.observeRecentEvents) — so "0 for unlimited" would silently
-        // collapse the demo's event list to a single row instead. Clamping here keeps the demo
-        // from ever exercising that conflicting sentinel through its own UI.
+        // Здесь ограничивается снизу значением >= 1, а не просто пробрасывается дальше: SDK
+        // трактует maxEventCount <= 0 как "без ограничения" для своих целей автоматической
+        // очистки, но то же самое значение переиспользуется ниже как лимит Flow для
+        // отображаемого списка событий этого экрана, где <= 0 ограничивается снизу значением 1
+        // (EventRepositoryImpl.observeRecentEvents) — так что "0 значит без ограничения" вместо
+        // этого молча схлопнуло бы список событий демо до одной-единственной строки. Ограничение
+        // здесь не даёт демо вообще когда-либо задействовать через свой UI это противоречивое
+        // спецзначение.
         val eventLimit = _state.value.eventLimitInput.toIntOrNull()?.coerceAtLeast(1)
             ?: configRepository.eventLimit
 

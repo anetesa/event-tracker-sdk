@@ -4,16 +4,17 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 /**
- * Persisted row for a tracked event.
+ * Сохраняемая строка отслеженного события.
  *
- * [createdDate] is precomputed at insert time (rather than derived in SQL) so day-grouping
- * queries are a plain `GROUP BY` with no per-row date math — matches the schema requirement.
+ * [createdDate] вычисляется заранее, в момент вставки (а не выводится в SQL), чтобы запросы
+ * группировки по дням были обычным `GROUP BY` без пересчёта даты построчно — соответствует
+ * требованию схемы.
  *
- * [isSeen] backs the "an event is not eligible for clearing until the UI has displayed it" rule:
- * it starts `false` and is flipped to `true` only once the row has been delivered to the UI's
- * observed event-list flow (see `EventRepositoryImpl`). `clearAllEvents()` only deletes rows
- * where this is `true`; the automatic retention/count cleanup ignores it by design (see
- * `CleanupWorker` doc).
+ * [isSeen] реализует правило "событие не подлежит очистке, пока UI его не показал": начинается
+ * со значения `false` и переключается в `true` только после того, как строка была доставлена в
+ * наблюдаемый UI-flow списка событий (см. `EventRepositoryImpl`). `clearAllEvents()` удаляет
+ * только строки, где это значение `true`; автоматическая очистка по retention/количеству
+ * сознательно игнорирует этот флаг (см. описание `CleanupWorker`).
  */
 @Entity(tableName = "events")
 data class EventEntity(

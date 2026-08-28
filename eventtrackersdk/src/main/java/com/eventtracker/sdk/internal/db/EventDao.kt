@@ -13,13 +13,14 @@ internal interface EventDao {
     suspend fun insert(event: EventEntity)
 
     /**
-     * `rowid DESC` is a tiebreaker for `timestamp DESC`, not just cosmetic: `timestamp` is
-     * millisecond-resolution `System.currentTimeMillis()`, and a tight loop (e.g. "Track 100
-     * Events") routinely inserts several rows within the same millisecond. Without a secondary
-     * key, SQLite doesn't guarantee any particular order among ties, so the "newest first" list
-     * could render out of insertion order. SQLite's implicit `rowid` (this table has no
-     * `INTEGER PRIMARY KEY`, so it isn't a WITHOUT ROWID table) increases monotonically with
-     * insertion order, making it a reliable, zero-schema-change tiebreaker.
+     * `rowid DESC` — это не косметика, а тай-брейкер для `timestamp DESC`: `timestamp` имеет
+     * разрешение в миллисекунду (`System.currentTimeMillis()`), и плотный цикл (например,
+     * "Track 100 Events") регулярно вставляет несколько строк в пределах одной и той же
+     * миллисекунды. Без второго ключа SQLite не гарантирует никакого конкретного порядка среди
+     * строк с одинаковым значением, так что список "сначала новые" мог бы отрендериться не в
+     * порядке вставки. Неявный `rowid` в SQLite (у этой таблицы нет `INTEGER PRIMARY KEY`, то
+     * есть это не WITHOUT ROWID таблица) монотонно растёт вместе с порядком вставки, что делает
+     * его надёжным тай-брейкером без каких-либо изменений схемы.
      */
     @Query("SELECT * FROM events ORDER BY timestamp DESC, rowid DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<EventEntity>>
@@ -31,10 +32,10 @@ internal interface EventDao {
     suspend fun getTodayCount(today: String): Int
 
     /**
-     * Groups by the precomputed [EventEntity.createdDate] bucket (no per-row date math), but
-     * orders by the numeric [EventEntity.timestamp] aggregate rather than the date string itself
-     * — `DD/MM/YYYY` sorts wrong lexicographically (e.g. "01/12/2025" < "25/11/2025" as strings,
-     * even though 25 Nov predates 01 Dec).
+     * Группирует по заранее вычисленному ведру [EventEntity.createdDate] (без пересчёта даты
+     * построчно), но сортирует по числовому агрегату [EventEntity.timestamp], а не по самой
+     * строке даты — формат `DD/MM/YYYY` лексикографически сортируется неверно (например,
+     * "01/12/2025" < "25/11/2025" как строки, хотя 25 ноября раньше 1 декабря).
      */
     @Query(
         """

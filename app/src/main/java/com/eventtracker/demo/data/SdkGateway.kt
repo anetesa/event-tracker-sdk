@@ -7,9 +7,9 @@ import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
 /**
- * Thin wrapper around the [EventTrackerSDK] singleton so [com.eventtracker.demo.ui.EventsViewModel]
- * depends on an interface instead of a static object — the ViewModel can then be unit-tested
- * with a fake, with no Room/WorkManager/real SDK involved.
+ * Тонкая обёртка над синглтоном [EventTrackerSDK], чтобы [com.eventtracker.demo.ui.EventsViewModel]
+ * зависел от интерфейса, а не от статического объекта — благодаря этому ViewModel можно
+ * юнит-тестировать с фейком, без Room/WorkManager/реального SDK.
  */
 interface SdkGateway {
     fun track(name: String, properties: Map<String, String> = emptyMap())

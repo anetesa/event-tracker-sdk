@@ -1,154 +1,165 @@
-# AI Communication Log
+# Лог взаимодействия с AI
 
-## Tools used
+## Использованные инструменты
 
-- **Claude Code** (Anthropic CLI agent), running model **Claude Sonnet 5**, in an interactive
-  terminal session with file read/write/edit access plus shell (Gradle) tooling. Every line of
-  source code, every test, and this document itself came out of that single tool across one
-  session.
+- **Claude Code** (агент-CLI от Anthropic), на модели **Claude Sonnet 5**, в интерактивной
+  терминальной сессии с доступом к чтению/записи/редактированию файлов плюс shell-инструментарий
+  (Gradle). Каждая строка исходного кода, каждый тест и сам этот документ вышли из одного и того
+  же инструмента в рамках одной сессии.
 
-### Specific Claude Code capabilities used
+### Использованные конкретные возможности Claude Code
 
-- **Plan Mode** (`EnterPlanMode`/`ExitPlanMode`) — invoked once, before a single line of code
-  existed, to draft the full architecture and get explicit sign-off on it: module layout, public
-  API, Room schema, the "seen event" mechanism, WorkManager wiring, edge cases, a test plan, and
-  a build order.
-- **A "Plan" sub-agent** (the `Agent` tool, `subagent_type: "Plan"`) — spawned once during that
-  plan-mode pass with the specific job of drafting the architecture and checking it against the
-  spec's requirements before it went up for approval; what it produced became the approved plan
-  almost word-for-word.
-- **`AskUserQuestion`** — used exactly once, before any scaffolding began, to settle a genuine
-  fork the assistant had no way to infer on its own: build the exam as a brand-new project, or
-  repurpose an unrelated, already-existing Android practice repo on the same GitHub account
-  (different `minSdk`, unrelated modules). The user chose "new project."
-- **`Monitor`** — an asynchronous log/condition watcher, called on repeatedly to wait out
-  long-running local Gradle test runs and GitHub Actions CI runs without sitting in a blocking
-  polling loop, freeing the assistant to keep working and get notified only when something
-  actually changed or finished.
-- Ordinary **Bash** (Gradle, `git`, the GitHub CLI `gh`) plus the editor's **Read/Write/Edit**
-  file tools handled everything else: writing source files, running builds and tests, tracking
-  down the ViewModel-test hang with `jstack`, standing up the private GitHub repo, and managing
-  commits and pushes.
+- **Plan Mode** (`EnterPlanMode`/`ExitPlanMode`) — вызван один раз, до того как появилась хоть
+  одна строчка кода, чтобы набросать полную архитектуру и получить явное одобрение по ней:
+  структура модулей, публичный API, схема Room, механизм "просмотренного события", подключение
+  WorkManager, крайние случаи, план тестирования и порядок сборки.
+- **Суб-агент "Plan"** (инструмент `Agent`, `subagent_type: "Plan"`) — запущен один раз в рамках
+  этого прохода в режиме планирования с конкретной задачей набросать архитектуру и сверить её с
+  требованиями ТЗ до того, как она пошла на утверждение; то, что он выдал, стало утверждённым
+  планом почти дословно.
+- **`AskUserQuestion`** — использован ровно один раз, до начала какого-либо скаффолдинга, чтобы
+  разрешить настоящую развилку, которую ассистент не мог вывести сам: собирать экзамен как
+  совершенно новый проект, или переиспользовать не связанный с ним, уже существующий Android
+  практический репозиторий на том же аккаунте GitHub (другой `minSdk`, не относящиеся к делу
+  модули). Пользователь выбрал "новый проект".
+- **`Monitor`** — асинхронный наблюдатель за логами/условиями, вызывался неоднократно, чтобы
+  дожидаться долгих локальных прогонов тестов Gradle и прогонов CI в GitHub Actions без сидения в
+  блокирующем цикле опроса — это освобождало ассистента продолжать работу и получать уведомление
+  только тогда, когда что-то реально изменилось или завершилось.
+- Обычный **Bash** (Gradle, `git`, GitHub CLI `gh`) плюс инструменты редактора
+  **Read/Write/Edit** для файлов справились со всем остальным: написание исходных файлов, запуск
+  сборок и тестов, поиск причины зависания теста ViewModel через `jstack`, разворачивание
+  приватного репозитория на GitHub, управление коммитами и пушами.
 
-### What was *not* used, and why
+### Что *не* использовалось, и почему
 
-This machine's Claude Code setup also exposes a sizable "Ruflo" MCP toolset globally — swarm
-orchestration, a shared memory/agent-coordination server, dozens of `mcp__ruflo__*` tools — plus a
-library of pre-built Skills. None of that got touched for this task. The exam boils down to a
-single developer, a single session, a same-day deadline, and a mostly linear dependency chain
-(schema → repository → facade → worker → app → tests); there was nothing here that was genuinely
-parallel or complex enough to justify multi-agent coordination, nor any repeatable workflow that
-would have made reaching for a packaged Skill worth more than just writing the code directly.
-Pulling in swarm/multi-agent tooling would have added coordination overhead with nothing to show
-for it — a call worth stating outright rather than quietly leaving out.
+На этой машине конфигурация Claude Code также выставляет наружу довольно большой набор MCP-
+инструментов "Ruflo" — оркестрация роя (swarm), сервер общей памяти/координации агентов, десятки
+инструментов `mcp__ruflo__*` — плюс библиотеку готовых Skills. Ничего из этого не было
+задействовано для этой задачи. Экзамен сводится к одному разработчику, одной сессии, дедлайну в
+тот же день и по большей части линейной цепочке зависимостей (схема → репозиторий → фасад →
+воркер → приложение → тесты); здесь не было ничего действительно параллельного или достаточно
+сложного, чтобы оправдать координацию нескольких агентов, и не было никакого повторяющегося
+рабочего процесса, который сделал бы обращение к готовому Skill более выгодным, чем просто
+написание кода напрямую. Подключение инструментария роя/множества агентов добавило бы накладные
+расходы на координацию без какого-либо результата взамен — это стоит проговорить прямо, а не
+тихо умолчать.
 
-## Process
+## Процесс
 
-The spec went in whole, and the instruction was to plan before writing any code — a "plan mode"
-pass where the assistant worked out a full architecture (module layout, public API surface, Room
-schema, the "seen event" mechanism, WorkManager wiring, edge cases, a test plan, a build order),
-which then got reviewed and signed off before implementation began. From there, work followed
-roughly that planned order: SDK models, then the Room layer, the repository, the public facade,
-the WorkManager worker, SDK unit tests, the demo app skeleton, DI, UI, the ViewModel, ViewModel
-tests, and finally the docs.
+ТЗ было передано целиком, а инструкция была — сначала спланировать, а не сразу писать код: проход
+в режиме "plan mode", где ассистент проработал полную архитектуру (структура модулей, публичная
+поверхность API, схема Room, механизм "просмотренного события", подключение WorkManager, крайние
+случаи, план тестирования, порядок сборки), которая затем была рассмотрена и одобрена до начала
+реализации. Дальше работа шла примерно в этом запланированном порядке: модели SDK, затем слой
+Room, репозиторий, публичный фасад, воркер WorkManager, юнит-тесты SDK, скелет демо-приложения,
+DI, UI, ViewModel, тесты ViewModel и, наконец, документация.
 
-## Key prompts
+## Ключевые запросы (промпты)
 
-- The complete exam spec, pasted verbatim, together with an instruction to plan first rather
-  than jump straight to implementation.
-- A detailed architecture-design prompt (used internally — it doesn't appear in the final code)
-  spelling out: module/package layout, exact public API shapes, Room schema and query design, the
-  "seen event" mechanism end to end, WorkManager scheduling details, a concrete list of edge
-  cases, a pragmatic testing plan sized to the same-day deadline, and a build order — with an
-  explicit instruction to flag any close judgment call rather than quietly pick a side.
-- Everything after that was mostly direct, file-by-file execution of the approved plan, not
-  open-ended "figure it out yourself" prompting.
+- Полное ТЗ экзамена, вставленное дословно, вместе с инструкцией сначала спланировать, а не
+  сразу переходить к реализации.
+- Подробный промпт для проектирования архитектуры (использован внутренне — в итоговом коде он
+  не фигурирует), расписывающий: структуру модулей/пакетов, точные формы публичного API, дизайн
+  схемы Room и запросов, механизм "просмотренного события" от начала до конца, детали
+  планирования WorkManager, конкретный список крайних случаев, прагматичный план тестирования,
+  рассчитанный под дедлайн в тот же день, и порядок сборки — с явной инструкцией отмечать любое
+  спорное решение, а не тихо выбирать одну из сторон.
+- Всё, что было после этого, было по большей части прямым, файл-за-файлом исполнением
+  утверждённого плана, а не открытым промптингом в духе "разберись сам".
 
-## Where AI helped successfully
+## Где AI помог успешно
 
-- **Architecture and SOLID decomposition**: the SDK was split into `EventTrackerSDK` (a thin
-  facade), `EventRepository`/`EventRepositoryImpl` (business rules), `EventDao` (pure SQL),
-  `SdkConfigStore`, `CleanupWorker`, and a handful of small single-purpose seams (`Clock`,
-  `IdGenerator`, `PropertiesJsonCodec`). Having this proposed and justified up front kept the
-  implementation phase mechanical rather than needing a mid-course redesign.
-- **A real correctness bug caught before it was ever written**: the day-grouping SQL query. The
-  schema calls for a precomputed `createdDate` string in `DD/MM/YYYY` format, used for grouping. A
-  naive `GROUP BY createdDate ORDER BY createdDate DESC` looks fine but isn't —
-  `"01/12/2025"` sorts *before* `"25/11/2025"` as plain text, even though 25 Nov comes first
-  chronologically. This surfaced during planning, before any SQL existed, and the query instead
-  orders by `MAX(timestamp)` while still grouping on the string column. A dedicated test
+- **Архитектура и SOLID-декомпозиция**: SDK был разбит на `EventTrackerSDK` (тонкий фасад),
+  `EventRepository`/`EventRepositoryImpl` (бизнес-правила), `EventDao` (чистый SQL),
+  `SdkConfigStore`, `CleanupWorker` и несколько небольших однонаправленных швов (`Clock`,
+  `IdGenerator`, `PropertiesJsonCodec`). То, что это было предложено и обосновано заранее, сделало
+  фазу реализации механической, без необходимости в редизайне на полпути.
+- **Реальный баг корректности, пойманный до того, как он вообще был написан**: SQL-запрос
+  группировки по дням. Схема требует заранее вычисленной строки `createdDate` в формате
+  `DD/MM/YYYY`, используемой для группировки. Наивный
+  `GROUP BY createdDate ORDER BY createdDate DESC` выглядит нормально, но таковым не является —
+  `"01/12/2025"` сортируется *раньше*, чем `"25/11/2025"`, как обычный текст, хотя хронологически
+  25 ноября наступает раньше. Это всплыло на этапе планирования, до того как существовал хоть
+  один SQL, и вместо этого запрос сортирует по `MAX(timestamp)`, продолжая при этом группировать
+  по строковой колонке. Отдельный тест
   (`EventDaoTest.getGroupedByDay orders by most recent day even when date strings sort lexicographically wrong`)
-  locks in that exact scenario against a real in-memory Room database.
-- **The "seen event" protection mechanism**: the spec's subtlest requirement — "an event is not
-  eligible for clearing if the user never saw it" — turned into a concrete, testable design: an
-  `isSeen` column that flips only once a row has actually reached the UI's observed `Flow`, with
-  `clearAllEvents()` scoped to `isSeen = true` rows and deliberately kept apart from the automatic
-  retention/count cleanup path. A dedicated test cross-checks this by asserting that an event
-  never delivered to `observeRecentEvents()` survives `clearAllEvents()`.
-- Boilerplate that would otherwise have eaten real time — Gradle module and version-catalog
-  wiring, Room DAO/entity scaffolding, Hilt module wiring, Compose layout — came together quickly
-  and stayed consistent with the plan throughout.
+  закрепляет именно этот сценарий против реальной in-memory базы Room.
+- **Механизм защиты "просмотренного события"**: самое тонкое требование ТЗ — "событие не подлежит
+  очистке, если пользователь никогда его не видел" — превратилось в конкретный, тестируемый
+  дизайн: колонка `isSeen`, которая переключается только после того, как строка реально дошла до
+  наблюдаемого UI `Flow`, причём `clearAllEvents()` ограничена строками с `isSeen = true` и
+  сознательно отделена от автоматического пути очистки по retention/количеству. Отдельный тест
+  перепроверяет это, утверждая, что событие, ни разу не доставленное в `observeRecentEvents()`,
+  переживает `clearAllEvents()`.
+- Шаблонный код, который иначе съел бы реальное время — настройка Gradle-модулей и
+  version-catalog, каркас Room DAO/entity, подключение Hilt, разметка Compose — собрался быстро и
+  на всём протяжении оставался согласован с планом.
 
-## Where AI got it wrong (verified and fixed)
+## Где AI ошибся (проверено и исправлено)
 
-1. **A literal control byte in place of an escape sequence.** While writing the escape-sequence
-   handling for the hand-rolled JSON decoder (`PropertiesJsonCodec.kt`), the source generated for
-   the `\f` (form-feed) JSON escape case ended up holding an actual raw form-feed *byte* between
-   the quotes instead of the intended two-character Kotlin escape — an artifact of how that one
-   escape sequence got transcribed while the file was written, not a logic mistake:
+1. **Буквальный управляющий байт вместо escape-последовательности.** При написании обработки
+   escape-последовательностей для написанного вручную JSON-декодера (`PropertiesJsonCodec.kt`),
+   сгенерированный исходный код для случая JSON-escape `\f` (form-feed) в итоге содержал между
+   кавычками настоящий сырой *байт* form-feed вместо предполагаемой двухсимвольной
+   Kotlin-escape-последовательности — артефакт того, как именно эта escape-последовательность
+   была перенесена в момент записи файла, а не ошибка логики:
 
    ```kotlin
-   // AI-generated (this is what it looked like visually, but byte-for-byte the file did NOT
-   // contain this text — the character between the quotes was a literal 0x0C byte):
+   // Сгенерировано AI (так это выглядело визуально, но байт-в-байт файл НЕ содержал этот
+   // текст — символ между кавычками был буквальным байтом 0x0C):
    'f' -> sb.append('\f')
    ```
 
    ```kotlin
-   // Corrected — found by scanning every .kt file for stray control bytes (anything below
-   // 0x20 other than \t \n \r), then repaired with a byte-level replacement, since a plain
-   // text-based find/replace kept failing to match:
+   // Исправлено — найдено сканированием каждого .kt-файла на предмет случайных управляющих
+   // байтов (что-либо ниже 0x20, кроме \t \n \r), затем починено байтовой заменой, поскольку
+   // обычный текстовый поиск-замена раз за разом не мог найти совпадение:
    'f' -> sb.append('\u000C')
    ```
 
-   This is precisely the sort of subtle, easy-to-miss defect the exam's "address edge cases" and
-   "verify AI-generated code" instructions are pointing at — left unchecked, it would have been
-   either an invisible compile error or, worse, a silently wrong character at runtime.
-   **Verification**: after fixing it, a scan of the whole repository confirmed no other `.kt`/`.kts`
-   file carried stray control bytes, and `PropertiesJsonCodecTest` — including a round-trip test
-   covering quotes, backslashes, newlines, and Unicode — passed.
+   Это ровно тот вид тонкого, легко пропускаемого дефекта, на который указывают инструкции
+   экзамена "учитывать крайние случаи" и "проверять сгенерированный AI код" — если бы это осталось
+   незамеченным, это была бы либо невидимая ошибка компиляции, либо, что хуже, молча неверный
+   символ во время выполнения. **Проверка**: после исправления скан всего репозитория подтвердил,
+   что ни один другой `.kt`/`.kts` файл не содержит случайных управляющих байтов, и
+   `PropertiesJsonCodecTest` — включая round-trip тест, покрывающий кавычки, обратные слэши,
+   переводы строк и Unicode — прошёл.
 
-2. **Tautological, dead test assertions on the first pass.** Two early rounds of test-writing
-   produced assertions that compiled and "passed" without actually checking anything:
+2. **Тавтологические, мёртвые тестовые проверки на первом проходе.** Два ранних раунда написания
+   тестов породили проверки, которые компилировались и "проходили", ничего на самом деле не
+   проверяя:
 
    ```kotlin
-   // AI-generated first pass (EventRepositoryImplTest) — this always passes no matter what
-   // `stored.timestamp` actually holds, since both sides of the comparison are the same
-   // string literal:
+   // Сгенерировано AI, первый проход (EventRepositoryImplTest) — всегда проходит независимо
+   // от того, что реально хранится в `stored.timestamp`, поскольку обе стороны сравнения —
+   // это один и тот же строковый литерал:
    assertEquals("button_clicked", stored.timestamp.let { "button_clicked" })
    ```
 
    ```kotlin
-   // Corrected — actually asserts on the field, plus the properties round-trip:
+   // Исправлено — реально проверяет поле, плюс round-trip свойств:
    assertEquals("button_clicked", stored.name)
    assertEquals(baseMillis, stored.timestamp)
    assertEquals(mapOf("screen" to "home"), PropertiesJsonCodec.decode(stored.propertiesJson))
    ```
 
-   A near-identical dead-assertion pattern turned up once more in `EventDaoTest` and got the same
-   treatment — asserting on an actual queried value rather than a self-referential `.let {}`
-   chain. **Verification**: this was only caught by re-reading each test file right after writing
-   it, before ever running the suite — the test framework itself didn't flag it, since both
-   versions compile and the broken one "passes" trivially. It's a good reminder that a green test
-   suite on its own isn't proof of anything; someone still has to read the assertions, not just
-   run them.
+   Почти идентичный паттерн мёртвой проверки всплыл ещё раз в `EventDaoTest` и получил то же
+   лечение — проверка реального запрошенного значения вместо самоссылающейся цепочки `.let {}`.
+   **Проверка**: это было обнаружено только повторным прочтением каждого тестового файла сразу
+   после написания, ещё до запуска набора тестов — сам тестовый фреймворк это не отмечал, поскольку
+   обе версии компилируются, а сломанная тривиально "проходит". Хорошее напоминание, что зелёный
+   набор тестов сам по себе ничего не доказывает; кто-то всё равно должен прочитать проверки, а не
+   просто их запустить.
 
-3. **A self-triggering write loop the first pass didn't anticipate.** The "seen" flag is written
-   as a side effect of the UI observing the event list: every emission from `observeRecentEvents()`
-   marks its rows seen. The first version wrote unconditionally on every emission:
+3. **Самозапускающийся цикл записи, который первый проход не предвидел.** Флаг "seen"
+   выставляется как побочный эффект наблюдения UI за списком событий: каждая эмиссия из
+   `observeRecentEvents()` помечает свои строки как просмотренные. Первая версия писала безусловно
+   при каждой эмиссии:
 
    ```kotlin
-   // AI-generated first pass — re-writes isSeen=1 on every emission, including rows
-   // already marked seen:
+   // Сгенерировано AI, первый проход — перезаписывает isSeen=1 при каждой эмиссии,
+   // включая строки, уже помеченные как просмотренные:
    .onEach { rows ->
        if (rows.isNotEmpty()) {
            scope.launch { dao.markSeen(rows.map { it.id }) }
@@ -156,15 +167,17 @@ tests, and finally the docs.
    }
    ```
 
-   Room's `Flow` re-runs its query and re-emits on *any* write to the observed table, not only
-   ones that change the result — so that `markSeen` write itself re-triggered the same emission,
-   which triggered the same write again, indefinitely, for as long as a collector was attached
-   (i.e. the whole time the app was in the foreground). This was caught during a dedicated
-   deep-review pass run specifically to look for exactly this class of issue, not during initial
-   implementation. Fix:
+   `Flow` от Room перезапускает свой запрос и переэмиттит при *любой* записи в наблюдаемую
+   таблицу, а не только при тех, что меняют результат — так что сама запись `markSeen` заново
+   триггерила ту же самую эмиссию, которая заново триггерила ту же самую запись, до
+   бесконечности, пока подписчик оставался подключён (то есть всё время, пока приложение было на
+   переднем плане). Это было найдено во время отдельного глубокого ревью-прохода, запущенного
+   специально для поиска именно такого класса проблем, а не во время первоначальной реализации.
+   Фикс:
 
    ```kotlin
-   // Corrected — only writes for rows not already marked seen, so the loop has a fixed point:
+   // Исправлено — пишет только по строкам, ещё не помеченным как просмотренные, так что у
+   // цикла есть неподвижная точка:
    .onEach { rows ->
        val newlySeenIds = rows.filter { !it.isSeen }.map { it.id }
        if (newlySeenIds.isNotEmpty()) {
@@ -173,83 +186,94 @@ tests, and finally the docs.
    }
    ```
 
-   **Verification**: added a regression test using a `MutableSharedFlow`-backed DAO double
-   (deliberately not the existing `MutableStateFlow`-backed fake, which dedupes equal emissions
-   and can't reproduce Room's actual behavior) that emits the same row twice — once unseen, once
-   already marked seen — and asserts `markSeen` is only called on the first emission. Also
-   confirmed on a physical device: CPU usage measured via `top`/`/proc/<pid>/stat` over a 10-second
-   idle window with 100 already-displayed events sitting in the database dropped to near-zero
-   (under 1.5% CPU, sleeping state), rather than staying pegged.
+   **Проверка**: добавлен регрессионный тест с использованием дублёра DAO на основе
+   `MutableSharedFlow` (сознательно не существующий фейк на `MutableStateFlow`, который
+   дедуплицирует одинаковые эмиссии и не может воспроизвести реальное поведение Room), который
+   эмиттит одну и ту же строку дважды — один раз непросмотренную, один раз уже помеченную как
+   просмотренную — и проверяет, что `markSeen` вызывается только для первой эмиссии. Также
+   подтверждено на физическом устройстве: загрузка CPU, замеренная через `top`/`/proc/<pid>/stat`
+   за 10-секундное окно простоя со 100 уже отображёнными событиями в базе данных, упала почти до
+   нуля (менее 1.5% CPU, состояние sleeping), вместо того чтобы оставаться на максимуме.
 
-4. **A background scope with no exception handler.** The SDK's internal `CoroutineScope` was
-   built with just a `SupervisorJob`, which stops a failing child from cancelling its siblings but
-   does *not* swallow the exception itself — an unhandled failure from a background write (a
-   disk-full Room error, say) would have propagated uncaught and crashed the host app, directly
-   contradicting the documented "`track()` never crashes the caller" guarantee. This was also
-   caught by the same deep-review pass rather than the initial implementation. Fix: added a
-   `CoroutineExceptionHandler` that logs and swallows, wired into the scope's construction
-   (`CoroutineScope(SupervisorJob() + Dispatchers.IO + exceptionHandler)`). **Verification**: code
-   review confirmed the handler is actually attached to the scope (not merely declared unused),
-   and the existing concurrency tests still pass with it in place.
+4. **Фоновый scope без обработчика исключений.** Внутренний `CoroutineScope` SDK был построен
+   только с `SupervisorJob`, который не даёт упавшему дочернему корутину отменить своих соседей,
+   но *не* глотает само исключение — необработанная ошибка из фоновой записи (скажем, ошибка Room
+   из-за нехватки места на диске) распространилась бы необработанной и уронила бы хост-приложение,
+   напрямую противореча задокументированной гарантии "`track()` никогда не роняет вызывающий код".
+   Это тоже было найдено тем же самым глубоким ревью-проходом, а не первоначальной реализацией.
+   Фикс: добавлен `CoroutineExceptionHandler`, который логирует и глотает исключение, подключённый
+   при конструировании scope
+   (`CoroutineScope(SupervisorJob() + Dispatchers.IO + exceptionHandler)`). **Проверка**: ревью
+   кода подтвердило, что обработчик реально подключён к scope (а не просто объявлен и не
+   используется), и существующие тесты на конкурентность по-прежнему проходят с ним на месте.
 
-5. **An ordering bug that AI's own review pass missed, and manual testing caught.** After the
-   deep-review pass above, the event list was still capable of rendering out of order: tapping
-   "Track 100 Events" could show `stress_test_event_97` at the top instead of `_99`, with the
-   visible sequence not monotonic. Root cause: `timestamp` is millisecond-resolution
-   `System.currentTimeMillis()`, and a tight loop issuing 100 `track()` calls routinely inserts
-   several rows within the same millisecond; `ORDER BY timestamp DESC` alone has no guaranteed
-   order among ties. This one is worth calling out specifically because neither the initial
-   implementation nor the dedicated deep-review pass caught it — it only surfaced from actually
-   running the stress-test button on a device and reading the resulting list, which is exactly the
-   kind of gap a code-only review (however thorough) can miss. Fix: added `rowid DESC` as a
-   secondary sort key in `observeRecent()`/`deleteExceedingCount()` — SQLite's implicit `rowid`
-   (the table has no `INTEGER PRIMARY KEY`, so it isn't `WITHOUT ROWID`) increases monotonically
-   with insertion order, giving a deterministic tiebreaker with no schema change. **Verification**:
-   a regression test inserting three same-timestamp rows and asserting they come back in reverse
-   insertion order, plus a repeat of the on-device "Track 100 Events" check confirming the newest
-   item shown was `_99` and the sequence descended monotonically from there.
+5. **Баг с порядком, который пропустил собственный ревью-проход AI, и который поймало ручное
+   тестирование.** После описанного выше глубокого ревью-прохода список событий всё ещё мог
+   отрендериться не по порядку: нажатие "Track 100 Events" могло показать `stress_test_event_97`
+   сверху вместо `_99`, при этом видимая последовательность не была монотонной. Первопричина:
+   `timestamp` имеет разрешение в миллисекунду (`System.currentTimeMillis()`), а плотный цикл,
+   выдающий 100 вызовов `track()`, регулярно вставляет несколько строк в пределах одной и той же
+   миллисекунды; один только `ORDER BY timestamp DESC` не даёт никакой гарантии порядка среди
+   совпадающих значений. Этот случай стоит выделить особо, поскольку его не поймала ни
+   первоначальная реализация, ни отдельный глубокий ревью-проход — он всплыл только благодаря
+   реальному нажатию кнопки стресс-теста на устройстве и прочтению получившегося списка, а это
+   ровно тот вид пробела, который может пропустить ревью только по коду, каким бы тщательным оно
+   ни было. Фикс: добавлен `rowid DESC` как второй ключ сортировки в
+   `observeRecent()`/`deleteExceedingCount()` — неявный `rowid` в SQLite (у таблицы нет
+   `INTEGER PRIMARY KEY`, так что это не `WITHOUT ROWID`) монотонно растёт вместе с порядком
+   вставки, давая детерминированный тай-брейкер без изменения схемы. **Проверка**: регрессионный
+   тест, вставляющий три строки с одинаковым timestamp и проверяющий, что они возвращаются в
+   обратном порядке вставки, плюс повторная проверка "Track 100 Events" на устройстве,
+   подтвердившая, что показанный самым верхним элемент — это `_99`, и последовательность оттуда
+   монотонно убывает.
 
-## How AI-generated code was verified
+## Как проверялся сгенерированный AI код
 
-- `./gradlew :eventtrackersdk:compileDebugKotlin :app:compileDebugKotlin`, run once the SDK and
-  demo app skeletons were in place, to surface wiring/type errors early rather than at the very
-  end.
-- `./gradlew testDebugUnitTest` across both modules — repository logic checked against a fake
-  in-memory DAO, real SQL correctness (day-grouping, deletion, the seen flag) checked against an
-  in-memory Room database via Robolectric, JSON codec round-trips, SDK init-idempotency checked
-  against a real (test-mode) WorkManager instance, and ViewModel behavior checked against a fake
-  `SdkGateway`.
-- `./gradlew assembleDebug`, to confirm both modules actually build the way they're configured to
-  — among other things, that the SDK module carries no accidental Hilt/Compose dependency, which
-  would have quietly undermined the whole framework-agnostic design.
-- A manual smoke test on the demo app: all four action buttons, config changes taking effect
-  live, "Clear All Events" leaving genuinely-unseen rows untouched, and a process kill/relaunch
-  neither duplicating the WorkManager job nor losing any tracked events.
-- A repository-wide sweep for stray control-byte artifacts (see bug #1 above), run after the
-  first one turned up, to rule out the same transcription glitch elsewhere.
-- A dedicated deep code-review pass over the whole diff after the initial implementation felt
-  complete, specifically looking for correctness bugs, reuse/simplification opportunities, and
-  requirements the spec asked for that hadn't been traced end to end. That pass is what surfaced
-  bugs #3 and #4 above; bug #5 slipped past even that and only showed up once the stress-test
-  button was actually tapped on a physical device and the resulting list was read by eye — a
-  reminder that a review pass, however thorough, is not a substitute for running the thing.
-- Physical-device verification beyond the initial smoke test: installing a fresh build, clearing
-  app data, running the full button sequence, and — for bug #3 specifically — sampling CPU usage
-  via `adb shell top`/`/proc/<pid>/stat` during an idle window to confirm the fix actually stopped
-  the background write loop rather than just looking right in the code.
+- `./gradlew :eventtrackersdk:compileDebugKotlin :app:compileDebugKotlin`, запущено сразу после
+  того, как каркасы SDK и демо-приложения оказались на месте, чтобы выявить ошибки
+  подключения/типов рано, а не в самом конце.
+- `./gradlew testDebugUnitTest` по обоим модулям — логика репозитория проверена против
+  фейкового in-memory DAO, корректность реального SQL (группировка по дням, удаление, флаг seen)
+  проверена против in-memory базы Room через Robolectric, round-trip JSON-кодека, идемпотентность
+  init() SDK проверена против реального (в тестовом режиме) экземпляра WorkManager, а поведение
+  ViewModel проверено против фейкового `SdkGateway`.
+- `./gradlew assembleDebug`, чтобы подтвердить, что оба модуля реально собираются так, как
+  сконфигурированы — среди прочего, что модуль SDK не несёт случайной зависимости от
+  Hilt/Compose, что тихо подорвало бы всю идею framework-agnostic дизайна.
+- Ручной smoke-тест демо-приложения: все четыре кнопки действий, изменения конфига,
+  применяющиеся на лету, "Clear All Events", оставляющий по-настоящему непросмотренные строки
+  нетронутыми, и убийство/перезапуск процесса, ни дублирующий задачу WorkManager, ни теряющий
+  какие-либо отслеженные события.
+- Сканирование всего репозитория на случайные артефакты-управляющие байты (см. баг №1 выше),
+  запущенное после того, как первый такой случай всплыл, чтобы исключить тот же самый глюк
+  переноса где-либо ещё.
+- Отдельный глубокий ревью-проход по всему диффу после того, как первоначальная реализация
+  казалась завершённой, специально в поисках багов корректности, возможностей переиспользования/
+  упрощения и требований из ТЗ, которые не были прослежены до конца. Именно этот проход выявил
+  баги №3 и №4 выше; баг №5 проскользнул даже мимо него и проявился только тогда, когда кнопка
+  стресс-теста была реально нажата на физическом устройстве, а получившийся список прочитан
+  глазами — напоминание, что ревью-проход, каким бы тщательным он ни был, не заменяет реальный
+  запуск программы.
+- Проверка на физическом устройстве сверх первоначального smoke-теста: установка свежей сборки,
+  очистка данных приложения, прогон полной последовательности кнопок и — конкретно для бага №3 —
+  замер загрузки CPU через `adb shell top`/`/proc/<pid>/stat` во время окна простоя, чтобы
+  подтвердить, что фикс реально остановил фоновый цикл записи, а не просто выглядел правильно в
+  коде.
 
-## Time saved vs. time spent debugging AI output
+## Сэкономленное время против времени, потраченного на отладку вывода AI
 
-Hand-scaffolding a two-module Gradle project — the version catalog, both `build.gradle.kts`
-files, Room/DAO boilerplate, Hilt wiring, Compose layout — would reasonably take longer than
-reviewing and lightly correcting AI-generated equivalents of the same. The architecture-planning
-pass stands out in particular: it surfaced both the date-string sort bug and the seen/clear
-design before any code existed, and that class of bug is normally expensive to catch later via a
-failing test rather than during design review, so it likely paid for itself several times over.
-On the other side of the ledger, none of the five bugs documented above were caught by "the code
-compiles" or "the tests pass" on their own — the first two needed a manual re-read, the next two
-needed a deliberate second review pass looking specifically for correctness issues rather than
-just confirming the happy path, and the last needed the app to actually run on a device. That
-layered verification — re-read, dedicated review, physical device — was the real cost of relying
-on AI-generated code here, and each layer caught something the previous one didn't; treating any
-one of them as sufficient on its own would have shipped a real bug.
+Написание вручную с нуля двухмодульного Gradle-проекта — version catalog, оба файла
+`build.gradle.kts`, шаблонный код Room/DAO, подключение Hilt, разметка Compose — разумно заняло
+бы больше времени, чем ревью и лёгкая правка сгенерированных AI эквивалентов того же самого.
+Особенно выделяется проход планирования архитектуры: он выявил и баг с сортировкой строки даты, и
+дизайн seen/clear ещё до того, как появился хоть какой-то код, а такой класс багов обычно дорого
+ловить позже через падающий тест, а не через ревью на этапе дизайна — так что, скорее всего, он
+окупился несколько раз. С другой стороны бухгалтерии, ни один из пяти задокументированных выше
+багов не был пойман тем, что "код компилируется", или тем, что "тесты проходят", сами по себе —
+первые два потребовали ручного повторного прочтения, следующие два потребовали намеренного
+второго ревью-прохода, специально смотрящего на проблемы корректности, а не просто
+подтверждающего happy path, а последний потребовал, чтобы приложение реально запустилось на
+устройстве. Эта многослойная проверка — повторное прочтение, отдельное ревью, физическое
+устройство — и была реальной ценой опоры на сгенерированный AI код в этом случае, и каждый слой
+поймал что-то, что не поймал предыдущий; считать любой из них достаточным самим по себе означало
+бы отправить в релиз реальный баг.

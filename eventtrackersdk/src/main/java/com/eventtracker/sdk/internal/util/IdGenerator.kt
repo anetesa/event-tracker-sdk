@@ -2,7 +2,7 @@ package com.eventtracker.sdk.internal.util
 
 import java.util.UUID
 
-/** Seam over unique-id generation so tests can supply deterministic ids. */
+/** Шов над генерацией уникальных id, чтобы тесты могли подставлять детерминированные значения. */
 internal interface IdGenerator {
     fun newId(): String
 }

@@ -7,10 +7,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * The demo app's own persisted copy of the user-configured retention period / event limit, so
- * [com.eventtracker.demo.EventTrackerDemoApp] can pass the current values to
- * `EventTrackerSDK.init` on every process wake-up (the SDK itself only remembers config once
- * initialized in-process; this is what survives across process restarts on the app side).
+ * Собственная сохранённая копия демо-приложения для настроенных пользователем периода retention
+ * / лимита событий, чтобы [com.eventtracker.demo.EventTrackerDemoApp] могла передавать текущие
+ * значения в `EventTrackerSDK.init` при каждом пробуждении процесса (сам SDK помнит конфиг
+ * только после инициализации внутри процесса; именно это переживает перезапуски процесса на
+ * стороне приложения).
  */
 @Singleton
 class DemoConfigRepository @Inject constructor(@ApplicationContext context: Context) {

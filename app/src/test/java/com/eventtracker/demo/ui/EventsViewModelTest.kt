@@ -24,15 +24,16 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * The ViewModel launches an unbounded `while (isActive) { refreshStatistics(); delay(3s) }` loop
- * on `viewModelScope` for the Statistics section. `Dispatchers.setMain(aTestDispatcher)` couples
- * `Dispatchers.Main`'s notion of "time" to whichever `runTest` is currently active (this is a
- * deliberate kotlinx-coroutines-test integration, not scoped to parent/child job structure) — so
- * without an explicit stop signal, `runTest`'s end-of-test idle-drain tries to fast-forward
- * through that infinite loop forever and the test hangs pegging a CPU core. The fix used
- * throughout this file: explicitly cancel `viewModel.viewModelScope` as the last step of every
- * test, exactly like the real ViewModel lifecycle does via `onCleared()` when it's actually
- * destroyed — this is not a workaround so much as reproducing production behavior in the test.
+ * ViewModel запускает в `viewModelScope` неограниченный цикл
+ * `while (isActive) { refreshStatistics(); delay(3s) }` для секции статистики.
+ * `Dispatchers.setMain(aTestDispatcher)` связывает понятие "времени" у `Dispatchers.Main` с тем,
+ * какой `runTest` сейчас активен (это осознанная интеграция kotlinx-coroutines-test, она не
+ * привязана к структуре parent/child job) — поэтому без явного сигнала остановки финальный
+ * "холостой прогон" `runTest` пытается бесконечно проматывать этот бесконечный цикл вперёд, и
+ * тест зависает, утилизируя одно ядро CPU. Решение, используемое по всему файлу: явно отменять
+ * `viewModel.viewModelScope` последним шагом каждого теста — точно так же, как это делает
+ * реальный жизненный цикл ViewModel через `onCleared()` при настоящем уничтожении. Это не костыль,
+ * а воспроизведение продакшен-поведения внутри теста.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class EventsViewModelTest {
@@ -58,7 +59,7 @@ class EventsViewModelTest {
 
     private fun TestScope.createViewModel(): EventsViewModel {
         val viewModel = EventsViewModel(gateway, configRepository)
-        runCurrent() // let init{}'s launched coroutines (stats refresh, event collection) run once
+        runCurrent() // даём один раз отработать запущенным в init{} корутинам (обновление статистики, сбор событий)
         return viewModel
     }
 
@@ -141,7 +142,7 @@ class EventsViewModelTest {
 
         viewModel.onApplyConfigClicked()
 
-        verify { configRepository.retentionDays = 7 } // falls back to the mocked persisted value
+        verify { configRepository.retentionDays = 7 } // откатывается к замоканному сохранённому значению
         viewModel.viewModelScope.cancel()
     }
 
@@ -151,7 +152,7 @@ class EventsViewModelTest {
         val events = listOf(TrackedEvent(id = "1", name = "e", properties = emptyMap(), timestamp = 1L))
 
         viewModel.state.test {
-            skipItems(1) // initial state
+            skipItems(1) // начальное состояние
             gateway.emitEvents(events)
             runCurrent()
             assertEquals(events, awaitItem().events)

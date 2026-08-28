@@ -1,16 +1,15 @@
 package com.eventtracker.sdk.internal.util
 
 /**
- * Encodes/decodes the flat `Map<String, String>` shape of event properties to/from a JSON
- * string, without pulling `org.json` (or any other JSON library) into the SDK's dependency
- * footprint.
+ * Кодирует/декодирует плоскую форму `Map<String, String>` свойств события в JSON-строку и
+ * обратно, не затягивая `org.json` (или любую другую JSON-библиотеку) в зависимости SDK.
  *
- * `org.json.JSONObject` was considered, but its real Android implementation throws
- * `RuntimeException` stubs when run under plain JUnit (it only works under Robolectric or on a
- * device), which would force every consumer of this codec's tests onto a heavier test
- * framework. Since properties are always a flat string map — never nested objects, arrays, or
- * non-string values — a small hand-rolled codec is simpler than the problem it avoids, and
- * behaves identically in production and unit tests.
+ * `org.json.JSONObject` рассматривался, но его настоящая Android-реализация бросает заглушки
+ * `RuntimeException` при запуске под чистым JUnit (работает только под Robolectric или на
+ * устройстве), что вынудило бы каждого потребителя тестов этого кодека тянуть более тяжёлый
+ * тестовый фреймворк. Поскольку properties — это всегда плоская строковая карта, никогда не
+ * вложенные объекты, массивы или нестроковые значения, — маленький написанный вручную кодек
+ * проще той проблемы, которую он обходит, и ведёт себя одинаково и в проде, и в юнит-тестах.
  */
 internal object PropertiesJsonCodec {
 
@@ -22,9 +21,10 @@ internal object PropertiesJsonCodec {
     }
 
     /**
-     * Decodes a JSON object of string keys to string values. Malformed input (e.g. from a
-     * corrupted or externally-edited row) never throws — it logs and falls back to an empty
-     * map, since a single unreadable properties blob must not crash retrieval of every event.
+     * Декодирует JSON-объект со строковыми ключами и строковыми значениями. Некорректный ввод
+     * (например, из повреждённой или отредактированной извне строки) никогда не бросает
+     * исключение — он логируется и заменяется на пустую карту, поскольку один нечитаемый блок
+     * properties не должен ронять выборку всех остальных событий.
      */
     fun decode(json: String): Map<String, String> {
         val trimmed = json.trim()

@@ -5,27 +5,28 @@ import com.eventtracker.sdk.model.TrackedEvent
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Owns all event business rules (id/timestamp generation, the "seen" flag lifecycle, statistics
- * shaping). Kept as an interface — separate from [com.eventtracker.sdk.internal.db.EventDao],
- * which is pure SQL — so it can be substituted with a fake in tests without touching Room, and
- * so [com.eventtracker.sdk.EventTrackerSDK] stays a thin facade with no business logic of its
- * own (dependency inversion + single-responsibility).
+ * Владеет всеми бизнес-правилами по событиям (генерация id/timestamp, жизненный цикл флага
+ * "seen", формирование статистики). Оформлено как интерфейс — отдельно от
+ * [com.eventtracker.sdk.internal.db.EventDao], который остаётся чистым SQL — чтобы его можно
+ * было подменить фейком в тестах, не трогая Room, и чтобы [com.eventtracker.sdk.EventTrackerSDK]
+ * оставался тонким фасадом без собственной бизнес-логики (инверсия зависимостей + единственная
+ * ответственность).
  */
 internal interface EventRepository {
 
-    /** Inserts a new event row. Suspends only for the DB write; the caller decides threading. */
+    /** Вставляет новую строку события. Приостанавливается только на время записи в БД; выбор потока — на совести вызывающего кода. */
     suspend fun trackEvent(name: String, properties: Map<String, String> = emptyMap())
 
     /**
-     * The live "event list" the UI observes. Every batch this [Flow] emits is marked seen as it
-     * is emitted — see the class doc on `isSeen` in `EventEntity` for why that is the chosen
-     * "seen" semantics.
+     * Живой "список событий", за которым наблюдает UI. Каждая порция, которую эмиттит этот
+     * [Flow], помечается как seen в момент эмиссии — почему выбрана именно такая семантика
+     * "seen", смотри в описании класса у поля `isSeen` в `EventEntity`.
      */
     fun observeRecentEvents(limit: Int): Flow<List<TrackedEvent>>
 
-    /** [dayWindow] caps how many of the most recent distinct days appear in [EventStatistics.byDay]. */
+    /** [dayWindow] ограничивает, сколько последних различных дней попадёт в [EventStatistics.byDay]. */
     suspend fun getStatistics(dayWindow: Int = 7): EventStatistics
 
-    /** Deletes only events the UI has already displayed (see `observeRecentEvents`). */
+    /** Удаляет только те события, которые UI уже показал (см. `observeRecentEvents`). */
     suspend fun clearAllEvents()
 }

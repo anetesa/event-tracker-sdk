@@ -1,7 +1,7 @@
 package com.eventtracker.sdk.model
 
 /**
- * A single event previously recorded via [com.eventtracker.sdk.EventTrackerSDK.track].
+ * Одно событие, ранее записанное через [com.eventtracker.sdk.EventTrackerSDK.track].
  */
 data class TrackedEvent(
     val id: String,

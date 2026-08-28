@@ -1,6 +1,6 @@
 package com.eventtracker.sdk.internal.util
 
-/** Deterministic [Clock] fake — tests advance time explicitly instead of relying on wall time. */
+/** Детерминированный фейк [Clock] — тесты сдвигают время явно, не полагаясь на реальное время. */
 internal class FakeClock(private var millis: Long) : Clock {
     override fun nowMillis(): Long = millis
     fun advanceByDays(days: Long) {
@@ -11,7 +11,7 @@ internal class FakeClock(private var millis: Long) : Clock {
     }
 }
 
-/** Deterministic [IdGenerator] fake — sequential ids instead of random UUIDs. */
+/** Детерминированный фейк [IdGenerator] — последовательные id вместо случайных UUID. */
 internal class FakeIdGenerator : IdGenerator {
     private var counter = 0
     override fun newId(): String = "id-${++counter}"

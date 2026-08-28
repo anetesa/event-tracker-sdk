@@ -7,10 +7,10 @@ import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
 /**
- * Initializes the SDK on every process wake-up (not just first install/run), passing whatever
- * retention period / event limit the user has configured previously — satisfies the "app must
- * initialize the SDK on each process wake-up... with the configured retention period and the
- * event limit count" requirement.
+ * Инициализирует SDK при каждом пробуждении процесса (не только при первой установке/запуске),
+ * передавая тот период retention / лимит событий, который пользователь ранее настроил —
+ * удовлетворяет требованию "приложение должно инициализировать SDK при каждом пробуждении
+ * процесса... с настроенным периодом retention и лимитом количества событий".
  */
 @HiltAndroidApp
 class EventTrackerDemoApp : Application() {

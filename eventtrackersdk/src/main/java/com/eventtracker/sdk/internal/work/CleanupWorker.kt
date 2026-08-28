@@ -9,19 +9,20 @@ import com.eventtracker.sdk.internal.db.EventTrackerDatabase
 import java.util.concurrent.TimeUnit
 
 /**
- * Periodic background cleanup: deletes events older than the configured retention period, and
- * separately trims down to the configured max event count when exceeded.
+ * Периодическая фоновая очистка: удаляет события старше настроенного периода retention, и
+ * отдельно урезает количество до настроенного максимума, если оно превышено.
  *
- * Deliberately does **not** consult [com.eventtracker.sdk.internal.db.EventEntity.isSeen] — the
- * "protect events the user has never seen" rule (see `EventRepositoryImpl.clearAllEvents`) is
- * scoped to the explicit user-initiated "clear all" action, not automatic disk-growth control;
- * automatic cleanup must not be silently defeated by an event list that's never opened. If a
- * reviewer intends the protection to also cover automatic cleanup, both queries below need an
- * added `AND isSeen = 1`.
+ * Сознательно **не** учитывает [com.eventtracker.sdk.internal.db.EventEntity.isSeen] — правило
+ * "защищать события, которые пользователь ещё не видел" (см. `EventRepositoryImpl.clearAllEvents`)
+ * ограничено явным пользовательским действием "clear all", а не автоматическим контролем роста
+ * диска; автоматическую очистку не должен молча обходить список событий, который никогда не
+ * открывают. Если ревьюер считает, что защита должна распространяться и на автоматическую
+ * очистку, в оба запроса ниже нужно добавить `AND isSeen = 1`.
  *
- * Config is re-read from [SdkConfigStore] on every run (not captured at schedule time) since
- * this worker may execute in a fresh process with no in-memory SDK state, and the values may
- * have changed via `EventTrackerSDK.updateConfig` since the job was first enqueued.
+ * Конфиг перечитывается из [SdkConfigStore] при каждом запуске (а не захватывается в момент
+ * планирования), поскольку этот воркер может выполниться в свежем процессе без какого-либо
+ * состояния SDK в памяти, а значения могли измениться через `EventTrackerSDK.updateConfig` уже
+ * после того, как задача была впервые поставлена в очередь.
  */
 internal class CleanupWorker(
     context: Context,

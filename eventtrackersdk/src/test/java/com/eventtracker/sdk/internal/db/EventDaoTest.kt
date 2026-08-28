@@ -14,8 +14,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Exercises the real SQL against an in-memory Room database — deletion/grouping correctness
- * can't be faithfully verified against a fake DAO, so this pays the Robolectric setup cost.
+ * Прогоняет настоящий SQL против in-memory базы Room — корректность удаления/группировки
+ * невозможно достоверно проверить на фейковом DAO, поэтому здесь оправданы расходы на настройку
+ * Robolectric.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [26])
@@ -76,9 +77,10 @@ class EventDaoTest {
 
     @Test
     fun `observeRecent breaks timestamp ties by insertion order, newest insert first`() = runBlocking {
-        // A rapid-fire loop (e.g. the demo's "Track 100 Events") can insert many rows within the
-        // same millisecond, since timestamp is System.currentTimeMillis() resolution. Without a
-        // tiebreaker, SQLite's ORDER BY timestamp DESC has no guaranteed order among ties.
+        // Плотный цикл (например, "Track 100 Events" в демо) может вставить много строк в
+        // пределах одной и той же миллисекунды, поскольку timestamp имеет разрешение
+        // System.currentTimeMillis(). Без тай-брейкера ORDER BY timestamp DESC в SQLite не даёт
+        // никакой гарантии порядка среди совпадающих значений.
         dao.insert(entity("first", timestamp = 5000L, createdDate = "01/01/2024"))
         dao.insert(entity("second", timestamp = 5000L, createdDate = "01/01/2024"))
         dao.insert(entity("third", timestamp = 5000L, createdDate = "01/01/2024"))
@@ -90,9 +92,9 @@ class EventDaoTest {
 
     @Test
     fun `getGroupedByDay orders by most recent day even when date strings sort lexicographically wrong`() = runBlocking {
-        // "01/12/2025" would sort before "25/11/2025" as plain strings, even though
-        // 25 Nov 2025 predates 1 Dec 2025 chronologically — the DAO must order by the
-        // underlying timestamp, not the createdDate string.
+        // "01/12/2025" отсортировалась бы раньше "25/11/2025" как обычные строки, хотя
+        // хронологически 25 ноября 2025 раньше 1 декабря 2025 — DAO обязан сортировать по
+        // числовому timestamp, а не по строке createdDate.
         dao.insert(entity("nov1", timestamp = 1000L, createdDate = "25/11/2025"))
         dao.insert(entity("nov2", timestamp = 1500L, createdDate = "25/11/2025"))
         dao.insert(entity("dec1", timestamp = 9000L, createdDate = "01/12/2025"))

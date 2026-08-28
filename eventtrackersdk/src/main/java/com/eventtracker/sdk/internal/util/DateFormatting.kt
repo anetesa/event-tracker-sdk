@@ -6,15 +6,17 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * Formats a Unix-millis timestamp into the `DD/MM/YYYY` bucket string used as the persisted
- * `createdDate` column (see schema requirement) and for statistics grouping.
+ * Форматирует timestamp в Unix-миллисекундах в строку-ведро `DD/MM/YYYY`, которая используется
+ * как значение сохраняемой колонки `createdDate` (см. требование схемы) и для группировки в
+ * статистике.
  *
- * Uses a fixed [Locale.US] so the separator/order never depend on device locale, but the device's
- * default [ZoneId] so "today" matches what the user actually perceives as today rather than a
- * UTC day that could differ by one day depending on timezone.
+ * Используется фиксированная [Locale.US], чтобы разделитель/порядок никогда не зависели от
+ * локали устройства, но при этом дефолтная [ZoneId] устройства — чтобы "сегодня" совпадало с
+ * тем, что пользователь реально воспринимает как сегодня, а не с UTC-днём, который может
+ * отличаться на день в зависимости от часового пояса.
  *
- * [DateTimeFormatter] is immutable and thread-safe, so this is safe to call concurrently from
- * multiple threads without any external synchronization.
+ * [DateTimeFormatter] неизменяем и потокобезопасен, поэтому вызывать это можно конкурентно из
+ * нескольких потоков без какой-либо внешней синхронизации.
  */
 internal object DateFormatting {
 

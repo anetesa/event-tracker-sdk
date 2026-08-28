@@ -4,23 +4,25 @@ import android.content.Context
 import android.content.SharedPreferences
 
 /**
- * Persists SDK configuration (retention period, max event count) across process restarts so the
- * background [com.eventtracker.sdk.internal.work.CleanupWorker] — which may run in a fresh
- * process with no in-memory state — always reads the latest values.
+ * Сохраняет конфигурацию SDK (период retention, максимальное число событий) между перезапусками
+ * процесса, чтобы фоновый [com.eventtracker.sdk.internal.work.CleanupWorker] — который может
+ * выполниться в свежем процессе без какого-либо состояния в памяти — всегда читал актуальные
+ * значения.
  */
 internal class SdkConfigStore(context: Context) {
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    /** Clamped to a minimum of 1 day — a non-positive retention period is not meaningful. */
+    /** Ограничивается снизу значением 1 день — неположительный период retention лишён смысла. */
     var retentionDays: Int
         get() = prefs.getInt(KEY_RETENTION_DAYS, DEFAULT_RETENTION_DAYS)
         set(value) = prefs.edit().putInt(KEY_RETENTION_DAYS, value.coerceAtLeast(1)).apply()
 
     /**
-     * A value `<= 0` means "unlimited" (count-based trimming is skipped) — more useful than
-     * clamping to 1, which would make every cleanup pass delete down to a single event.
+     * Значение `<= 0` означает "без ограничения" (очистка по количеству пропускается) — это
+     * полезнее, чем ограничение снизу значением 1, из-за которого каждая очистка удаляла бы всё
+     * до одного-единственного события.
      */
     var maxEventCount: Int
         get() = prefs.getInt(KEY_MAX_EVENT_COUNT, DEFAULT_MAX_EVENT_COUNT)

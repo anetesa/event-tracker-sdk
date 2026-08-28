@@ -1,70 +1,75 @@
-# TODO / Known Gaps
+# TODO / Известные пробелы
 
-Provided per the exam's request for "a list of TODOs in case you do not finish the task."
+Предоставлено по запросу экзамена ("список TODO на случай, если задание не будет доделано").
 
-## Judgment calls worth a second look
+## Спорные решения, заслуживающие повторного взгляда
 
-- **Scope of "seen" protection**: `clearAllEvents()` deletes only events the UI has already
-  displayed (`isSeen = true`); the automatic WorkManager retention/count cleanup deliberately
-  leaves `isSeen` unchecked (see the `CleanupWorker` doc comment for the full reasoning). If a
-  reviewer expects that protection to extend to automatic cleanup too, it's a one-line change —
-  add `AND isSeen = 1` to `deleteOlderThan`/`deleteExceedingCount` in `EventDao`.
-- The demo caps its displayed event list to the configured max-event-count rather than treating
-  it as an independent "page size," which gives the "seen" rule something concrete to
-  demonstrate. The spec's literal phrasing ("display all events") is arguably ambiguous either
-  way — see the `EventsViewModel` doc comment for the full argument.
-- **The "seen" invariant is upheld by convention, not by the type system.** Exactly one place
-  enforces it — the `onEach{}` inside `EventRepositoryImpl.observeRecentEvents` — and `EventDao`
-  is `internal` rather than private to that class, so `CleanupWorker` already reaches it directly,
-  sidestepping `EventRepository` (by design, since it's meant to skip the seen-check). Nothing
-  stops a future read path against `EventDao` — a debug screen, a new SDK method — from silently
-  never marking rows seen. Left unaddressed here: a proper fix would wrap `EventDao` behind a
-  decorator or move seen-tracking into the repository itself, and that felt like more
-  architecture than this exam warranted — but it's worth flagging for whoever extends this code
-  next.
-- **MVVM rather than strict MVI in the demo app.** `EventsViewModel` does expose a single
-  `StateFlow<EventsUiState>` — MVI's "state" half — but relies on plain public methods
-  (`onTrackEventClicked()`, `onApplyConfigClicked()`, and so on) rather than a
-  `sealed interface EventsIntent` funneled through one `onIntent(intent)` entry point, and there's
-  no one-shot effect channel (no navigation exists, and nothing surfaces error/snackbar events
-  yet). MVI's usual selling points — intents as replayable, loggable data; a single funnel for
-  every state mutation; an effect channel for exactly-once events — don't have much to grip onto
-  here: it's one screen, no navigation, no multi-step flows, nothing that needs sequencing. Every
-  handler already has its own unit test (`EventsViewModelTest`), so MVI's testability argument
-  doesn't buy much extra either. Layering it on would be process for its own sake rather than a
-  response to an actual problem. Worth revisiting if the screen ever grows navigation targets or
-  needs one-shot UI events, like a snackbar after a failed action.
-- **Package-level layering inside `:eventtrackersdk` rather than a domain/data Gradle module
-  split.** The SDK separates its concerns through packages — `model`, `internal.repository`,
-  `internal.db`, `internal.work`, `internal.config`/`internal.util` — instead of further carving
-  itself into, say, `:eventtrackersdk:domain` / `:eventtrackersdk:data` submodules, the way a
-  *feature* embedded in a larger multi-module app might be structured. The reasoning:
-  `:eventtrackersdk` already **is** the one deliverable the spec asks for ("the SDK must be an
-  Android Library module," singular) — splitting it into several interdependent modules would
-  fragment that single artifact rather than sharpen it, for a codebase small enough (roughly 15
-  Kotlin files) that packages already buy the same isolation — an `EventRepository` interface for
-  dependency inversion, `internal` visibility keeping Room out of the public surface — without the
-  added Gradle wiring. Worth reconsidering only if the SDK eventually grows enough independent
-  features to justify separate build/test cycles per layer.
+- **Границы защиты "seen"**: `clearAllEvents()` удаляет только те события, которые UI уже
+  показал (`isSeen = true`); автоматическая очистка по retention/количеству через WorkManager
+  сознательно не проверяет `isSeen` (полное обоснование — в doc-комментарии `CleanupWorker`).
+  Если ревьюер ожидает, что защита должна распространяться и на автоматическую очистку, это
+  правка в одну строчку — добавить `AND isSeen = 1` в `deleteOlderThan`/`deleteExceedingCount`
+  в `EventDao`.
+- Демо-приложение ограничивает отображаемый список событий настроенным максимальным количеством
+  событий, а не трактует его как независимый "размер страницы" — это даёт правилу "seen" что-то
+  конкретное для демонстрации. Буквальная формулировка ТЗ ("показать все события") в любом
+  прочтении спорна — полный аргумент см. в doc-комментарии `EventsViewModel`.
+- **Инвариант "seen" держится на соглашении, а не на системе типов.** Ровно одно место
+  обеспечивает его — `onEach{}` внутри `EventRepositoryImpl.observeRecentEvents` — а `EventDao`
+  объявлен `internal`, а не private для этого класса, поэтому `CleanupWorker` уже обращается к
+  нему напрямую, минуя `EventRepository` (намеренно, поскольку он как раз должен пропускать
+  проверку seen). Ничто не мешает будущему пути чтения через `EventDao` — отладочному экрану,
+  новому методу SDK — молча никогда не помечать строки как просмотренные. Оставлено без решения
+  здесь: правильным фиксом было бы обернуть `EventDao` декоратором либо перенести отслеживание
+  seen в сам репозиторий, но это показалось больше архитектуры, чем требовал объём этого
+  экзамена — но стоит отметить это для того, кто будет расширять этот код дальше.
+- **MVVM, а не строгий MVI в демо-приложении.** `EventsViewModel` действительно выставляет
+  единый `StateFlow<EventsUiState>` — это половина MVI, отвечающая за "state" — но полагается на
+  обычные публичные методы (`onTrackEventClicked()`, `onApplyConfigClicked()` и так далее), а не
+  на `sealed interface EventsIntent`, стекающийся в единую точку входа `onIntent(intent)`, и не
+  имеет одноразового канала эффектов (навигации нет, и пока ничто не выдаёт события
+  ошибки/снекбара). Обычные аргументы в пользу MVI — интенты как воспроизводимые, логируемые
+  данные; единая воронка для каждой мутации состояния; канал эффектов для событий "ровно один
+  раз" — здесь особо не за что зацепиться: это один экран, без навигации, без многошаговых
+  сценариев, ничего, что требовало бы упорядочивания. У каждого обработчика уже есть свой
+  юнит-тест (`EventsViewModelTest`), так что и аргумент о тестируемости MVI тоже не даёт большого
+  выигрыша. Накладывать MVI сверху было бы процессом ради процесса, а не ответом на реальную
+  проблему. Стоит пересмотреть, если у экрана когда-нибудь появится навигация или потребуются
+  одноразовые UI-события, например снекбар после неудачного действия.
+- **Разделение на уровне пакетов внутри `:eventtrackersdk`, а не разбиение на Gradle-модули
+  domain/data.** SDK разделяет ответственность через пакеты — `model`, `internal.repository`,
+  `internal.db`, `internal.work`, `internal.config`/`internal.util` — вместо дальнейшего
+  дробления, скажем, на подмодули `:eventtrackersdk:domain` / `:eventtrackersdk:data`, как могла
+  бы быть структурирована *фича* внутри более крупного multi-module приложения. Обоснование:
+  `:eventtrackersdk` уже сам по себе **является** тем единственным артефактом, который просит
+  ТЗ ("SDK должен быть Android Library модулем", в единственном числе) — разбиение его на
+  несколько взаимозависимых модулей раздробило бы этот единый артефакт, а не сделало бы его
+  чётче, для кодовой базы, достаточно маленькой (примерно 15 Kotlin-файлов), чтобы пакеты уже
+  давали ту же изоляцию — интерфейс `EventRepository` для инверсии зависимостей, видимость
+  `internal`, не пускающая Room в публичную поверхность — без дополнительной настройки Gradle.
+  Стоит пересмотреть только если SDK со временем разрастётся до достаточного количества
+  независимых фич, чтобы оправдать раздельные циклы сборки/тестирования по слоям.
 
-## Not implemented / out of scope given the exam's time budget
+## Не реализовано / вне рамок из-за времени, отведённого на экзамен
 
-- No Compose UI instrumented tests (`androidTest`); ViewModel unit tests against a fake
-  `SdkGateway` stand in for that coverage instead.
-- No full WorkManager scheduling integration test on a real device or emulator — the actual
-  24h/1h timing behind `enqueueUniquePeriodicWork` is a framework guarantee rather than app
-  logic, so only the "second `init()` doesn't create a duplicate job" behavior is unit-tested.
-- No custom launcher icon or adaptive icon; the demo app builds and runs fine without one (AGP
-  doesn't require it), though a more polished submission would include one.
-- No localization — UI strings are English-only, which the spec doesn't ask to change.
-- No inline validation error shown to the user for non-numeric config input; it quietly falls
-  back to the previously persisted value instead of surfacing a field-level error.
-- **Only a debug build was produced and submitted** (the shared APK, and the AAR published on
-  GitHub releases). The spec asks for "APK of the demo app" without specifying a build variant,
-  and a release build needs its own signing config — `app/build.gradle.kts` declares a `release`
-  buildType with `isMinifyEnabled = true`, but no keystore/`signingConfig` was ever set up for it,
-  since nothing in the spec calls for a signed release artifact. `./gradlew assembleRelease` would
-  need that added first. Consequently there's also no proguard/R8 keep-rules audit beyond AGP's
-  defaults — only the debug build got a manual smoke test.
-- The real-world impact of Doze/battery optimization on the periodic cleanup job's timing is
-  understood in theory but hasn't been confirmed on a physical device.
+- Нет инструментальных тестов Compose UI (`androidTest`); юнит-тесты ViewModel против фейкового
+  `SdkGateway` заменяют это покрытие.
+- Нет полноценного интеграционного теста планирования WorkManager на реальном устройстве или
+  эмуляторе — реальное поведение таймингов 24ч/1ч за `enqueueUniquePeriodicWork` — это гарантия
+  фреймворка, а не логика приложения, так что юнит-тестом покрыто только поведение "второй
+  `init()` не создаёт дублирующую задачу".
+- Нет собственной иконки лаунчера или адаптивной иконки; демо-приложение и без неё нормально
+  собирается и запускается (AGP этого не требует), хотя более отполированная подача включала бы
+  иконку.
+- Нет локализации — строки UI только на английском, чего ТЗ не просит менять.
+- Нет встроенной ошибки валидации, показываемой пользователю при нечисловом вводе конфига; вместо
+  этого происходит тихий откат к ранее сохранённому значению без вывода ошибки на уровне поля.
+- **Собрана и отправлена только debug-сборка** (переданный APK и AAR, опубликованный в GitHub
+  releases). ТЗ просит "APK демо-приложения", не уточняя вариант сборки, а release-сборке нужна
+  своя конфигурация подписи — в `app/build.gradle.kts` объявлен `release` buildType с
+  `isMinifyEnabled = true`, но keystore/`signingConfig` для него так и не настроены, поскольку
+  ничто в ТЗ не требует подписанного релизного артефакта. Для `./gradlew assembleRelease`
+  сначала потребовалось бы это добавить. Как следствие, отсутствует и аудит правил
+  proguard/R8 keep за пределами дефолтов AGP — ручной smoke-тест прошла только debug-сборка.
+- Реальное влияние Doze / оптимизации батареи на тайминг периодической задачи очистки понятно
+  теоретически, но не подтверждено на физическом устройстве.

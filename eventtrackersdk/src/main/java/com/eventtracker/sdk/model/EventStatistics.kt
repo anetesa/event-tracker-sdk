@@ -1,7 +1,7 @@
 package com.eventtracker.sdk.model
 
 /**
- * Number of events recorded on a single calendar day, keyed by [date] in `DD/MM/YYYY` format.
+ * Количество событий, зафиксированных за один календарный день, ключ [date] в формате `DD/MM/YYYY`.
  */
 data class DayCount(
     val date: String,
@@ -9,9 +9,10 @@ data class DayCount(
 )
 
 /**
- * Aggregate statistics returned by [com.eventtracker.sdk.EventTrackerSDK.getStatistics].
+ * Агрегированная статистика, возвращаемая [com.eventtracker.sdk.EventTrackerSDK.getStatistics].
  *
- * [byDay] is ordered newest day first and capped to the most recent days requested.
+ * [byDay] упорядочен так, что сначала идёт самый новый день, и ограничен запрошенным числом
+ * последних дней.
  */
 data class EventStatistics(
     val totalCount: Int,

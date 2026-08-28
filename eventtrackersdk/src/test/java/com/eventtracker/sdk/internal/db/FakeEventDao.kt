@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
-/** In-memory [EventDao] fake for repository-level unit tests — no Room/Robolectric required. */
+/** In-memory фейк [EventDao] для юнит-тестов уровня репозитория — Room/Robolectric не требуется. */
 internal class FakeEventDao : EventDao {
 
     private val state = MutableStateFlow<List<EventEntity>>(emptyList())

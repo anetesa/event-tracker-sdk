@@ -131,12 +131,12 @@ private fun ConfigurationSection(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(
                 onDone = {
-                    // Deliberately not calling FocusManager.clearFocus() here: inside this
-                    // LazyColumn it bounces focus back onto the retention field (even with
-                    // force = true) instead of releasing it, leaving the keyboard open on the
-                    // wrong field. Hiding the IME directly is sufficient to close the keyboard;
-                    // the field silently keeping logical focus (with no visible keyboard) is
-                    // harmless.
+                    // Здесь сознательно не вызывается FocusManager.clearFocus(): внутри этого
+                    // LazyColumn он отбрасывает фокус обратно на поле retention (даже с
+                    // force = true) вместо того, чтобы просто снять фокус, оставляя клавиатуру
+                    // открытой над не тем полем. Прямого скрытия IME достаточно, чтобы закрыть
+                    // клавиатуру; то, что поле молча сохраняет логический фокус (без видимой
+                    // клавиатуры), безвредно.
                     keyboardController?.hide()
                 },
             ),

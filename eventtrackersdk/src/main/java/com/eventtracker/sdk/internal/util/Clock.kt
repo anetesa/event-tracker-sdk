@@ -1,8 +1,8 @@
 package com.eventtracker.sdk.internal.util
 
 /**
- * Seam over [System.currentTimeMillis] so time-dependent logic (day grouping, retention cutoffs)
- * is deterministic in tests.
+ * Шов над [System.currentTimeMillis], чтобы логика, зависящая от времени (группировка по дням,
+ * границы retention), была детерминированной в тестах.
  */
 internal interface Clock {
     fun nowMillis(): Long

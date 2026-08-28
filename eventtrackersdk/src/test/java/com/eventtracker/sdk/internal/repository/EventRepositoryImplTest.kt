@@ -20,7 +20,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class EventRepositoryImplTest {
 
-    // 2024-12-20T12:00:00Z in millis, an arbitrary fixed instant so day-bucketing is deterministic.
+    // 2024-12-20T12:00:00Z в миллисекундах, произвольный фиксированный момент, чтобы группировка по дням была детерминированной.
     private val baseMillis = 1734696000000L
 
     @Test
@@ -58,14 +58,14 @@ class EventRepositoryImplTest {
         repository.trackEvent("today_2")
         clock.advanceByDays(-1)
         repository.trackEvent("yesterday_1")
-        clock.set(baseMillis) // back to "today" before asking what counts as today
+        clock.set(baseMillis) // возвращаемся к "сегодня" перед тем, как спрашивать, что считается сегодняшним днём
 
         val stats = repository.getStatistics(dayWindow = 7)
 
         assertEquals(3, stats.totalCount)
         assertEquals(2, stats.todayCount)
         assertEquals(2, stats.byDay.size)
-        assertEquals(2, stats.byDay.first().count) // most recent day first
+        assertEquals(2, stats.byDay.first().count) // сначала самый новый день
     }
 
     @Test
@@ -80,7 +80,7 @@ class EventRepositoryImplTest {
             assertEquals(1, first.size)
             cancelAndIgnoreRemainingEvents()
         }
-        runCurrent() // let the fire-and-forget markSeen side effect complete
+        runCurrent() // даём завершиться fire-and-forget побочному эффекту markSeen
 
         repository.clearAllEvents()
 
@@ -93,7 +93,7 @@ class EventRepositoryImplTest {
         val repository: EventRepository = EventRepositoryImpl(dao, FakeClock(baseMillis), FakeIdGenerator(), backgroundScope)
 
         repository.trackEvent("never_seen")
-        // Deliberately never calling observeRecentEvents().
+        // Сознательно ни разу не вызываем observeRecentEvents().
 
         repository.clearAllEvents()
 
@@ -103,17 +103,18 @@ class EventRepositoryImplTest {
 
     @Test
     fun `does not re-write markSeen for rows a later emission already reports as seen`() = runTest {
-        // Room's real Flow re-emits on ANY write to the observed table, including markSeen's own
-        // UPDATE — not just emissions where the query result actually changed. A MutableSharedFlow
-        // (unlike FakeEventDao's MutableStateFlow, which dedupes equal values) reproduces that:
-        // every emit() reaches the collector regardless of content, matching the real bug
-        // scenario this test guards against.
+        // Реальный Flow от Room переэмиттит при ЛЮБОЙ записи в наблюдаемую таблицу, включая
+        // собственный UPDATE от markSeen — а не только те эмиссии, где результат запроса
+        // действительно изменился. MutableSharedFlow (в отличие от MutableStateFlow в
+        // FakeEventDao, который дедуплицирует одинаковые значения) это воспроизводит: каждый
+        // emit() долетает до подписчика независимо от содержимого — точно так же, как реальный
+        // сценарий бага, от которого защищает этот тест.
         val dao = RecordingReemittingDao()
         val repository: EventRepository = EventRepositoryImpl(dao, FakeClock(baseMillis), FakeIdGenerator(), backgroundScope)
 
         val notYetSeen = EventEntity(id = "e1", name = "n", propertiesJson = "{}", timestamp = 1L, createdDate = "20/12/2024")
-        // Second emission simulates what a real re-query would return after the first markSeen
-        // write already committed: the same row, now isSeen=true.
+        // Вторая эмиссия имитирует то, что вернул бы реальный повторный запрос после того, как
+        // первая запись markSeen уже закоммитилась: та же строка, теперь с isSeen=true.
         val alreadySeenAfterFirstWrite = notYetSeen.copy(isSeen = true)
 
         repository.observeRecentEvents(limit = 10).test {
@@ -123,13 +124,13 @@ class EventRepositoryImplTest {
             assertEquals(1, awaitItem().size)
             cancelAndIgnoreRemainingEvents()
         }
-        runCurrent() // let any fire-and-forget markSeen launches complete
+        runCurrent() // даём завершиться всем fire-and-forget запускам markSeen
 
-        assertEquals(1, dao.markSeenCalls.size) // only for the first, genuinely-unseen emission
+        assertEquals(1, dao.markSeenCalls.size) // только для первой, по-настоящему непросмотренной эмиссии
         assertEquals(listOf("e1"), dao.markSeenCalls.single())
     }
 
-    /** Minimal [EventDao] double whose [observeRecent] never deduplicates emissions, unlike [FakeEventDao]. */
+    /** Минимальный дубль [EventDao], чей [observeRecent] никогда не дедуплицирует эмиссии, в отличие от [FakeEventDao]. */
     private class RecordingReemittingDao : EventDao {
         val markSeenCalls = mutableListOf<List<String>>()
         private val flow = MutableSharedFlow<List<EventEntity>>(replay = 0, extraBufferCapacity = 8)

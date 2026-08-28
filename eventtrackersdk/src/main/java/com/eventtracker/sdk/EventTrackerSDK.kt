@@ -24,14 +24,15 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 /**
- * Public entry point for the Event Tracker SDK.
+ * Публичная точка входа Event Tracker SDK.
  *
- * Deliberately framework-agnostic: this facade does not require Hilt, Dagger, or any other DI
- * framework from the host app — it builds its own collaborators internally the first time
- * [init] runs. This keeps the SDK a true drop-in artifact rather than one that imposes the
- * host's architecture choices.
+ * Сознательно framework-agnostic: этот фасад не требует от хост-приложения Hilt, Dagger или
+ * любого другого DI-фреймворка — все свои зависимости он строит сам, внутри, при первом
+ * вызове [init]. Это делает SDK настоящим drop-in артефактом, а не библиотекой, которая
+ * навязывает хосту свои архитектурные решения.
  *
- * All public methods are safe to call from any thread. [track] never blocks the caller.
+ * Все публичные методы безопасно вызывать из любого потока. [track] никогда не блокирует
+ * вызывающий поток.
  */
 object EventTrackerSDK {
 
@@ -47,15 +48,16 @@ object EventTrackerSDK {
     private lateinit var scope: CoroutineScope
 
     /**
-     * Initializes the SDK. Safe to call from app startup on every process wake-up: the first
-     * call in a process wins and performs setup (schedules the periodic cleanup job, persists
-     * config); every subsequent call in the same process — including concurrent racing calls —
-     * is a no-op.
+     * Инициализирует SDK. Безопасно вызывать при каждом запуске приложения, на каждое
+     * пробуждение процесса: первый вызов в рамках процесса побеждает и выполняет настройку
+     * (планирует периодическую задачу очистки, сохраняет конфиг); каждый последующий вызов в
+     * том же процессе — включая конкурентно гоняющиеся вызовы — не делает ничего.
      *
-     * @param retentionDays events older than this are eligible for automatic cleanup. Clamped to
-     *   a minimum of 1.
-     * @param maxEventCount if the stored event count exceeds this, the oldest excess events are
-     *   eligible for automatic cleanup. A value `<= 0` disables count-based trimming.
+     * @param retentionDays события старше этого срока подлежат автоматической очистке.
+     *   Ограничивается снизу значением 1.
+     * @param maxEventCount если число сохранённых событий превышает это значение, самые старые
+     *   лишние события подлежат автоматической очистке. Значение `<= 0` отключает очистку по
+     *   количеству.
      */
     fun init(context: Context, retentionDays: Int = 7, maxEventCount: Int = 100) {
         if (initialized) return
@@ -69,11 +71,11 @@ object EventTrackerSDK {
                 this.maxEventCount = maxEventCount
             }
 
-            // A SupervisorJob alone does not swallow exceptions — it only stops a failing child
-            // from cancelling its siblings. Without this handler, an exception from a background
-            // write (e.g. a disk-full Room failure during a burst of track() calls) would
-            // propagate uncaught and crash the host app, violating the "track() never crashes
-            // the caller" guarantee.
+            // Один только SupervisorJob не глотает исключения — он лишь не даёт упавшему
+            // дочернему корутину отменить своих соседей. Без этого обработчика исключение из
+            // фоновой записи (например, ошибка Room из-за нехватки места на диске во время
+            // серии вызовов track()) долетело бы необработанным и уронило бы хост-приложение,
+            // нарушив гарантию "track() никогда не роняет вызывающий код".
             val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
                 Log.e(TAG, "Unhandled exception in EventTrackerSDK background work", throwable)
             }
@@ -82,55 +84,55 @@ object EventTrackerSDK {
 
             scheduleCleanupWork(appContext)
 
-            // Published last: any thread that observes `initialized == true` is guaranteed (by
-            // the JVM memory model's volatile happens-before rule) to see the fully-constructed
-            // `repository`/`configStore`/`scope` written above.
+            // Публикуется последним: любой поток, увидевший `initialized == true`, гарантированно
+            // (по правилу happens-before для volatile в модели памяти JVM) увидит и полностью
+            // сконструированные `repository`/`configStore`/`scope`, записанные выше.
             initialized = true
         }
     }
 
-    /** Live-updates retention/limit config without requiring re-initialization. Either parameter may be omitted to leave it unchanged. */
+    /** Обновляет конфиг retention/limit "на лету", без повторной инициализации. Любой параметр можно опустить, чтобы оставить его без изменений. */
     fun updateConfig(retentionDays: Int? = null, maxEventCount: Int? = null): Unit = guarded("updateConfig()", Unit) {
         retentionDays?.let { configStore.retentionDays = it }
         maxEventCount?.let { configStore.maxEventCount = it }
     }
 
     /**
-     * Tracks an event. Returns immediately — the write happens asynchronously on a background
-     * dispatcher, so this never blocks the calling thread regardless of caller. Safe to call
-     * concurrently from many threads in rapid succession without data loss.
+     * Трекает событие. Возвращает управление немедленно — запись происходит асинхронно на
+     * фоновом диспетчере, поэтому вызывающий поток не блокируется никогда, независимо от того,
+     * кто вызвал. Безопасно вызывать конкурентно из множества потоков подряд без потери данных.
      *
-     * If called before [init], the event is dropped and a warning is logged: a mistakenly-early
-     * call must not crash the caller, but there is no queue-until-init behavior in this SDK.
+     * Если вызвано до [init], событие отбрасывается и пишется предупреждение в лог: ошибочно
+     * ранний вызов не должен ронять вызывающий код, но очереди "до инициализации" в этом SDK нет.
      */
     fun track(name: String, properties: Map<String, String> = emptyMap()): Unit = guarded("track(\"$name\")", Unit) {
         scope.launch { repository.trackEvent(name, properties) }
     }
 
-    /** Recent events, newest first, capped to [limit] (clamped to a minimum of 1). */
+    /** Последние события, сначала новые, ограничено значением [limit] (снизу ограничено 1). */
     fun getRecentEvents(limit: Int = 50): Flow<List<TrackedEvent>> =
         guarded("getRecentEvents()", emptyFlow()) { repository.observeRecentEvents(limit) }
 
-    /** Total/today/day-grouped counts. Always executes on a background thread. */
+    /** Общее количество / сегодняшнее количество / разбивка по дням. Всегда выполняется в фоновом потоке. */
     suspend fun getStatistics(dayWindow: Int = 7): EventStatistics =
         guardedSuspend("getStatistics()", EventStatistics(totalCount = 0, todayCount = 0, byDay = emptyList())) {
             repository.getStatistics(dayWindow)
         }
 
     /**
-     * Deletes all events the UI has already displayed via [getRecentEvents]. Events never yet
-     * delivered to that flow are left untouched — see `EventRepositoryImpl` for the exact
-     * "seen" semantics.
+     * Удаляет все события, которые UI уже показал через [getRecentEvents]. События, ещё ни
+     * разу не доставленные в этот flow, остаются нетронутыми — точную семантику "seen" смотри
+     * в `EventRepositoryImpl`.
      */
     suspend fun clearAllEvents() = guardedSuspend("clearAllEvents()", Unit) {
         repository.clearAllEvents()
     }
 
     /**
-     * Every public method needs the same "did init() actually run yet?" check before touching
-     * the lateinit `repository`/`configStore`/`scope` — kept as these two small helpers instead
-     * of a hand-copied `if (!initialized) {...}` per method, so a future method can't compile
-     * while forgetting the guard.
+     * Каждому публичному методу нужна одна и та же проверка "а init() вообще уже отработал?"
+     * перед обращением к lateinit-полям `repository`/`configStore`/`scope` — вынесено в эти два
+     * небольших хелпера вместо копипасты `if (!initialized) {...}` в каждом методе, чтобы будущий
+     * метод не мог скомпилироваться, забыв про эту проверку.
      */
     private inline fun <T> guarded(methodName: String, fallback: T, block: () -> T): T {
         if (!initialized) {
