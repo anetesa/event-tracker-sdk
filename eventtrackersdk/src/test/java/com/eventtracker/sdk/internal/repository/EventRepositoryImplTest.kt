@@ -17,6 +17,24 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/**
+ * Подход: чистый JVM-юнит-тест с рукописными фейками ([FakeEventDao], [FakeClock],
+ * [FakeIdGenerator]) — ни моков, ни Robolectric здесь не нужно.
+ *
+ * Почему не Robolectric (как в [com.eventtracker.sdk.internal.db.EventDaoTest]): здесь
+ * проверяется логика оркестрации репозитория (нормализация имени, генерация id/timestamp,
+ * подсчёт "seen"-событий, маппинг в публичную модель) — она не зависит от реального SQL Room,
+ * поэтому поднимать Android-песочницу Robolectric и настоящую Room-БД избыточно и только
+ * замедлило бы тесты.
+ *
+ * Почему не MockK: [EventDao] здесь нужен не как набор застабленных ответов на отдельные вызовы,
+ * а как небольшой источник состояния, который сам меняется между операциями (insert -> observe ->
+ * markSeen -> delete) — миниатюрная in-memory реализация интерфейса читается и пишется естественнее,
+ * чем цепочка `every {} returns` на каждый метод и каждый промежуточный результат.
+ * [FakeClock] и [FakeIdGenerator] по той же причине сделаны фейками, а не моками: тестам нужно
+ * управлять временем и генерацией id как детерминированной, изменяемой во времени последовательностью
+ * ("продвинуть на день назад", "вернуться к базовому времени"), а не проверять сам факт вызова.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class EventRepositoryImplTest {
 

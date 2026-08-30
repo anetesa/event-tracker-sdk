@@ -12,9 +12,17 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Robolectric даёт каждому тесту собственную песочницу classloader'а, поэтому object-состояние
- * [EventTrackerSDK] здесь естественным образом сбрасывается между тестовыми методами — ручной
- * сброс через рефлексию не нужен.
+ * Подход: Robolectric (не мок, не фейк, не plain unit) для `object` [EventTrackerSDK] целиком,
+ * плюс `WorkManagerTestInitHelper` для реального (тестового) [WorkManager].
+ *
+ * Почему: [EventTrackerSDK] — это framework-agnostic фасад, который сам конструирует внутри
+ * себя `Context`-зависимые вещи (Room через `EventTrackerDatabase.getInstance`, `WorkManager`),
+ * а не принимает их извне как аргументы — поэтому подменить их фейком/моком в тесте нельзя,
+ * не изменив сам продакшен-код. Нужен настоящий `Context` и настоящий `WorkManager`, а
+ * Robolectric даёт их на JVM без эмулятора. Дополнительный бонус: Robolectric даёт каждому
+ * тесту собственную песочницу classloader'а, поэтому `object`-состояние [EventTrackerSDK]
+ * естественным образом сбрасывается между тестовыми методами — ручной сброс через рефлексию
+ * не нужен.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [26])

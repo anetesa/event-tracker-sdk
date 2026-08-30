@@ -24,6 +24,14 @@ import org.junit.Before
 import org.junit.Test
 
 /**
+ * Подход: plain JVM-юнит-тест ViewModel с [UnconfinedTestDispatcher], фейком [FakeSdkGateway]
+ * (см. его doc-комментарий, почему это фейк, а не мок) и `mockk(relaxed = true)` для
+ * `DemoConfigRepository` (простой геттер/сеттер поверх SharedPreferences — Robolectric ради
+ * него не нужен, достаточно двух `every {}` и `verify {}` на присвоение). Ни Robolectric, ни
+ * реальный `EventTrackerSDK` здесь не задействованы вовсе: [EventsViewModel] зависит только от
+ * интерфейсов ([SdkGateway], `DemoConfigRepository`), поэтому Android SDK/Room/WorkManager до
+ * этого теста просто не доходят.
+ *
  * ViewModel запускает в `viewModelScope` неограниченный цикл
  * `while (isActive) { refreshStatistics(); delay(3s) }` для секции статистики.
  * `Dispatchers.setMain(aTestDispatcher)` связывает понятие "времени" у `Dispatchers.Main` с тем,

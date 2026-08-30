@@ -5,7 +5,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
-/** In-memory фейк [EventDao] для юнит-тестов уровня репозитория — Room/Robolectric не требуется. */
+/**
+ * Подход: рукописный in-memory фейк [EventDao] (не мок, не Robolectric).
+ *
+ * Почему: тестам репозитория ([com.eventtracker.sdk.internal.repository.EventRepositoryImplTest])
+ * не важна реализация SQL — важно только наблюдаемое поведение хранилища (вставил -> получил
+ * обратно, удалил -> пропал). Раз саму базу проверяет отдельный [EventDaoTest] на Robolectric,
+ * здесь достаточно простой коллекции в [MutableStateFlow], которая работает мгновенно и без
+ * зависимости от Android SDK — это и есть основная причина не тянуть сюда Robolectric.
+ */
 internal class FakeEventDao : EventDao {
 
     private val state = MutableStateFlow<List<EventEntity>>(emptyList())

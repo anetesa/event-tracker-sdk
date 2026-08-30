@@ -3,6 +3,14 @@ package com.eventtracker.sdk.internal.util
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
+/**
+ * Подход: обычный юнит-тест без моков, фейков и Robolectric.
+ *
+ * Почему: [PropertiesJsonCodec] — stateless-объект с чистыми функциями encode/decode: нет ни
+ * зависимостей, ни Android API, ни I/O — только строка на входе и строка/Map на выходе. Тестовому
+ * дублю здесь просто нечего подменять, поэтому тест сводится к прямому вызову функции и сравнению
+ * результата (в т.ч. edge-кейсов: пустая строка, экранирование, unicode, битый JSON).
+ */
 class PropertiesJsonCodecTest {
 
     @Test
