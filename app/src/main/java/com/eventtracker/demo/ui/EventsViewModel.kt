@@ -25,7 +25,7 @@ class EventsViewModel @Inject constructor(
 
     /**
      * List display is capped to the same value as the configured event limit — this ties the
-     * exam's "seen events are protected from Clear All" requirement directly to the
+     * "seen events are protected from Clear All" requirement directly to the
      * user-configurable event count: if more than [DemoConfigRepository.eventLimit] events exist
      * (e.g. right after "Track 100 Events" also counting the app's own startup events), the
      * oldest overflow rows never appear in this capped list, are therefore never marked seen,

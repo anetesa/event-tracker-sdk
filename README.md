@@ -1,7 +1,7 @@
 # Event Tracker SDK
 
-A take-home technical exam: an Android event-tracking SDK (`:eventtrackersdk`, packaged as an
-Android Library module) alongside a demo app (`:app`) that puts it through its paces.
+A lightweight Android event-tracking SDK (`:eventtrackersdk`, packaged as an Android Library
+module) alongside a demo app (`:app`) that exercises it.
 
 ## Modules
 
@@ -13,13 +13,29 @@ Android Library module) alongside a demo app (`:app`) that puts it through its p
 ## SDK public API
 
 ```kotlin
-EventTrackerSDK.init(context, retentionDays = 7, maxEventCount = 100) // once per process; later calls are no-ops
-EventTrackerSDK.updateConfig(retentionDays = 14, maxEventCount = 200) // live update, no re-init needed
+EventTrackerSDK.updateConfig(retentionDays = 14, maxEventCount = 200) // live update, no init call needed
 EventTrackerSDK.track("button_clicked", mapOf("button_id" to "submit")) // non-blocking, thread-safe
 EventTrackerSDK.getRecentEvents(limit = 50) // Flow<List<TrackedEvent>>, newest first
 EventTrackerSDK.getStatistics() // suspend, total/today/by-day counts
 EventTrackerSDK.clearAllEvents() // suspend, deletes only events the UI has displayed
 ```
+
+No `init()` call is needed — the SDK auto-initializes itself on process start via a `ContentProvider`
+bundled in the `:eventtrackersdk` manifest (the same mechanism WorkManager and Firebase use), so
+adding the dependency is enough to get tracking running. To configure it out of the box, drop an
+`event_tracker_config.json` file into your app's `assets/` folder:
+
+```json
+{
+  "retentionDays": 14,
+  "maxEventCount": 200
+}
+```
+
+This is read once, at auto-init time — the same "drop a config file in, no code required" shape as
+Firebase's `google-services.json`. Both keys are optional; anything missing (or the file itself)
+falls back to the SDK's built-in defaults (7 days / 100 events). To change these values at runtime
+instead — e.g. from a settings screen — call `EventTrackerSDK.updateConfig(...)`.
 
 ## Design notes
 
@@ -27,9 +43,12 @@ EventTrackerSDK.clearAllEvents() // suspend, deletes only events the UI has disp
   `CoroutineScope(SupervisorJob() + Dispatchers.IO)`. Calling `track()` just launches a coroutine
   on that scope and hands control back to the caller immediately — Room takes care of serializing
   the actual writes underneath.
-- **Idempotent `init()`**: double-checked locking (a `synchronized` block plus a `@Volatile`
-  flag published last) means whichever call reaches the process first wins; every subsequent
-  call — even racing ones from other threads — is simply ignored.
+- **Auto-init via `ContentProvider`, and an idempotent `init()`**: `EventTrackerInitProvider`
+  (declared in the SDK's own manifest) runs before any host app code does, calling the SDK's
+  internal `init()` with the resolved config. `init()` itself uses double-checked locking (a
+  `synchronized` block plus a `@Volatile` flag published last), so whichever call reaches the
+  process first wins — in practice always the auto-init provider — and every subsequent call,
+  including racing ones from other threads, is simply ignored.
 - **The "seen" rule**: `EventEntity.isSeen` starts out `false` and only becomes `true` once a
   batch of rows has actually reached `getRecentEvents()`'s collector — in other words, once the
   UI has displayed them. `clearAllEvents()` deletes exclusively the rows where `isSeen = true`.
@@ -55,6 +74,3 @@ export ANDROID_HOME="$HOME/Library/Android/sdk"
 ./gradlew assembleDebug
 ./gradlew testDebugUnitTest
 ```
-
-For the AI-assisted development log, see `AI_COMMUNICATION.md`; known gaps are tracked in
-`TODO.md`.
