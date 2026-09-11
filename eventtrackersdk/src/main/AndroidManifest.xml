@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+        initOrder is lower than the (unset, default 0) initOrder of androidx.startup's own
+        InitializationProvider — which is what actually runs WorkManagerInitializer — so this
+        provider is guaranteed to run after it. EventTrackerSDK.init() calls
+        WorkManager.getInstance(...) internally, which requires WorkManager to already be
+        initialized; without this, provider instantiation order across an app's merged manifest
+        is otherwise unspecified relative to other libraries' providers.
+        -->
+        <provider
+            android:name=".internal.init.EventTrackerInitProvider"
+            android:authorities="${applicationId}.eventtrackerinitprovider"
+            android:exported="false"
+            android:initOrder="-100" />
+    </application>
+
+</manifest>

@@ -31,6 +31,12 @@ import java.util.concurrent.TimeUnit
  * [init] runs. This keeps the SDK a true drop-in artifact rather than one that imposes the
  * host's architecture choices.
  *
+ * [init] itself normally never needs to be called by the host app: it runs automatically on
+ * process start via `com.eventtracker.sdk.internal.init.EventTrackerInitProvider`, a
+ * `ContentProvider` declared in this library's own manifest — see that class's doc comment for
+ * how it resolves the initial `retentionDays`/`maxEventCount`. To change those values at runtime
+ * instead (e.g. from a settings screen), call [updateConfig].
+ *
  * All public methods are safe to call from any thread. [track] never blocks the caller.
  */
 object EventTrackerSDK {
@@ -47,10 +53,15 @@ object EventTrackerSDK {
     private lateinit var scope: CoroutineScope
 
     /**
-     * Initializes the SDK. Safe to call from app startup on every process wake-up: the first
-     * call in a process wins and performs setup (schedules the periodic cleanup job, persists
-     * config); every subsequent call in the same process — including concurrent racing calls —
-     * is a no-op.
+     * Initializes the SDK. In a normal app process this has already been called automatically —
+     * by the auto-init `ContentProvider`, before any host app code ran — by the time any code
+     * could possibly call this method, so an explicit call from host app code is essentially
+     * always a no-op in practice. It stays public and idempotent regardless, for tests and for
+     * advanced setups that disable the auto-init provider via a manifest merge override.
+     *
+     * The first call in a process wins and performs setup (schedules the periodic cleanup job,
+     * persists config); every subsequent call in the same process — including concurrent racing
+     * calls — is a no-op.
      *
      * @param retentionDays events older than this are eligible for automatic cleanup. Clamped to
      *   a minimum of 1.
@@ -80,7 +91,12 @@ object EventTrackerSDK {
             scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + exceptionHandler)
             repository = EventRepositoryImpl(dao, SystemClock, UuidGenerator, scope)
 
-            scheduleCleanupWork(appContext)
+            // Tracking/reading must keep working even if this fails (e.g. a host app's own
+            // Configuration.Provider replaces WorkManager's default auto-init and hasn't run yet
+            // at this point in provider startup) — scheduling is retried on every future init()
+            // call, i.e. every future process start, so a one-off failure here is not permanent.
+            runCatching { scheduleCleanupWork(appContext) }
+                .onFailure { e -> Log.w(TAG, "Failed to schedule periodic cleanup work; will retry on next process start", e) }
 
             // Published last: any thread that observes `initialized == true` is guaranteed (by
             // the JVM memory model's volatile happens-before rule) to see the fully-constructed
